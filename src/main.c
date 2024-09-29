@@ -6,8 +6,8 @@
 
 #define MAKER_DEBUG
 #define MAKER_PLAYER_IMPL
-#include "maker_player.h"
-#include "quad.glsl.h"
+#include "maker.h"
+#include "shaders/quad.glsl.h"
 
 static struct {
     sg_pass_action pass_action;
@@ -18,7 +18,7 @@ static struct {
 static void init(void) {
     mplayer_setup(&(mplayer_desc){.logger.func = slog_func});
 
-    const mplayer_media media = mplayer_open_file("video.mp4");
+    const mplayer_media media = mplayer_open_file("tests/video.mp4");
     mplayer_decode_media(&media);
 
     sg_setup(&(sg_desc){

@@ -5,7 +5,10 @@ function _cmake {
 }
 
 function _shdc {
-  ./vendors/fips-deploy/sokol-tools/osx-xcode-debug/sokol-shdc $@
+  ./vendors/fips-deploy/sokol-tools/osx-xcode-debug/sokol-shdc \
+  --input src/shaders/$1.glsl \
+  --output src/shaders/$1.glsl.h \
+  --slang glsl430:hlsl5:metal_macos
 }
 
 function install {
@@ -25,7 +28,7 @@ function install:tools {
 
 function build {
   : "Build"
- _shdc --input src/quad.glsl --output src/quad.glsl.h --slang glsl430:hlsl5:metal_macos 
+ _shdc quad  
  _cmake --build build $@
 }
 

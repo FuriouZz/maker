@@ -1,7 +1,7 @@
 #include "sokol_log.h"
 
 #define MAKER_DEBUG
-#include "../src/maker_player.h"
+#include "../src/maker.h"
 
 int main(int argc, char *argv[]) {
     (void)argc;

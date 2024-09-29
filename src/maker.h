@@ -1,5 +1,5 @@
-#ifndef MAKER_PLAYER_H
-#define MAKER_PLAYER_H
+#ifndef MAKER_H
+#define MAKER_H
 
 #include "stdbool.h"
 
@@ -71,4 +71,5 @@ extern void mplayer_decode_media(const mplayer_media *media);
 extern mplayer_pixel_data mplayer_alloc_pixel_data(void);
 
 extern void mplayer_get_pixels(mplayer_pixel_data *data);
+
 #endif

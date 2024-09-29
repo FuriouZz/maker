@@ -4,8 +4,8 @@
 #include "libavutil/imgutils.h"
 #include "libswscale/swscale.h"
 
+#include "maker.h"
 #include "maker_internal.h"
-#include "maker_player.h"
 
 // >>structs
 typedef struct {

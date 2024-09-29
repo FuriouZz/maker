@@ -1,0 +1,7 @@
+add_library(makerlib STATIC src/maker_player.c src/maker_util.c)
+target_link_libraries(makerlib requirements)
+target_link_libraries(makerlib microui)
+target_link_libraries(makerlib sokol)
+target_link_libraries(makerlib ${FFMPEG_LIBRARIES})
+target_link_directories(makerlib PUBLIC ${FFMPEG_LIBRARY_DIRS})
+target_include_directories(makerlib PUBLIC ${FFMPEG_INCLUDE_DIRS})

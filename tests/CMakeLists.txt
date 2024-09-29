@@ -6,6 +6,10 @@ project(
   LANGUAGES C
 )
 
+#=== TESTING:
+include(CTest)
+enable_testing()
+
 #=== LIBRARY: test
 add_library(test INTERFACE)
 target_include_directories(test INTERFACE "${PROJECT_SOURCE_DIR}/src")
@@ -18,7 +22,12 @@ target_link_libraries(
 target_link_directories(test INTERFACE ${FFMPEG_LIBRARY_DIRS})
 target_include_directories(test INTERFACE ${FFMPEG_INCLUDE_DIRS})
 
-#=== EXECUTABLE: decode
+#=== TEST: hello world
+add_executable(test-hello-world "hello-world.c")
+target_link_libraries(test-hello-world test sokol microui)
+add_test(NAME TestHelloWorld COMMAND test-hello-world)
+
+#=== TEST: decode
 add_executable(
   test-decode 
   "decode.c"
@@ -26,8 +35,4 @@ add_executable(
   "${CMAKE_SOURCE_DIR}/src/maker_util.c"
 )
 target_link_libraries(test-decode test)
-
-#=== TESTING:
-include(CTest)
-enable_testing()
 add_test(NAME TestDecode COMMAND test-decode "${CMAKE_SOURCE_DIR}/tests/video.mp4")
