@@ -22,7 +22,7 @@ list(APPEND FFMPEG_OPTIONS "--enable-swscale")
 # list(APPEND FFMPEG_OPTIONS "--enable-libx264")
 
 ExternalProject_Add(
-  ffmpeg-project
+  ffmpeg
   URL "${PROJECT_SOURCE_DIR}/vendors/ffmpeg"
   BUILD_IN_SOURCE 1
   CONFIGURE_COMMAND ./configure ${FFMPEG_OPTIONS}
@@ -32,7 +32,7 @@ ExternalProject_Add(
   LOG_BUILD 1
   LOG_INSTALL 1
 )
-ExternalProject_Get_property(ffmpeg-project INSTALL_DIR)
+ExternalProject_Get_property(ffmpeg INSTALL_DIR)
 
 set(FFMPEG_FOUND true)
 set(FFMPEG_LIBRARY_DIRS "${INSTALL_DIR}/lib")
