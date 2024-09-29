@@ -7,3 +7,9 @@
 [submodule "vendors/microui"]
 	path = vendors/microui
 	url = git@github.com:rxi/microui.git
+[submodule "vendors/sokol-tools"]
+	path = vendors/sokol-tools
+	url = git@github.com:floooh/sokol-tools.git
+[submodule "vendors/fips"]
+	path = vendors/fips
+	url = git@github.com:floooh/fips.git

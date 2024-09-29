@@ -2,4 +2,4 @@
 .cache
 build
 compile_commands.json
-tools/fips-*
+vendors/fips-*
