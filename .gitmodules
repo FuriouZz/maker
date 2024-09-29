@@ -1,0 +1,9 @@
+[submodule "vendors/ffmpeg"]
+	path = vendors/ffmpeg
+	url = https://git.ffmpeg.org/ffmpeg.git
+[submodule "vendors/sokol"]
+	path = vendors/sokol
+	url = https://github.com/floooh/sokol
+[submodule "vendors/microui"]
+	path = vendors/microui
+	url = git@github.com:rxi/microui.git

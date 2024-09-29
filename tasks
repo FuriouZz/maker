@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+function _cmake {
+  CC=clang CXX=clang++ cmake $@
+}
+
+function _shdc {
+  ./tools/fips-deploy/sokol-tools/osx-xcode-debug/sokol-shdc $@
+}
+
+function setup {
+  : "Setup cmake"
+  _cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -S . -B build --log-level=DEBUG $@
+  ln -s ./build/compile_commands.json ./
+}
+
+function build {
+  : "Build"
+ _shdc --input src/quad.glsl --output src/quad.glsl.h --slang glsl430:hlsl5:metal_macos 
+ _cmake --build build $@
+}
+
+function run {
+  : "Build and run"
+  build $@ && ./build/maker
+}
+
+function build:tools {
+  cd tools/sokol-tools
+  ./fips build
+}
+
+function test {
+  cd ./build/tests
+  ctest
+}
+
+function help {
+  : "Auto-generate list of tasks, including documentation in the form of these noop statements"
+  compgen -A function | grep -v "^_" | while read -r name; do
+    paste <(printf '%s' "$name") <(type "$name" | sed -nEe 's/^[[:space:]]*: ?"(.*)";/\1/p')
+  done
+}
+
+# This idea is heavily inspired by: https://github.com/adriancooney/Taskfile
+TIMEFORMAT=$'\nTask completed in %3lR'
+time "${@:-help}"
