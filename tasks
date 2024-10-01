@@ -38,8 +38,15 @@ function run {
 }
 
 function test {
+  build
   cd ./build/tests
-  ctest
+
+  OPTS=""
+  if [ -n "$1" ]; then
+    OPTS="$OPTS -R $1"
+  fi
+  
+  ctest $OPTS
 }
 
 function help {

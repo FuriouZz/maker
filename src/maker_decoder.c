@@ -4,45 +4,48 @@
 #include "libavutil/imgutils.h"
 #include "libswscale/swscale.h"
 
-#include "maker.h"
+#include "maker_decoder.h"
 #include "maker_internal.h"
+#include "maker_util.h"
 
 // >>structs
 typedef struct {
-    mplayer_desc desc;
+    mdecoder_desc desc;
     AVFrame *frame;
-} _mplayer_state;
+} _mdecoder_state;
 
-_MAKER_PRIVATE _mplayer_state _mplayer;
+_MAKER_PRIVATE _mdecoder_state _mdecoder;
 
 // >>logging
-// #if defined(MAKER_DEBUG)
-#define _MPLAYER_LOGITEM_XMACRO(item, msg) #item ": " msg,
-_MAKER_PRIVATE const char *_mplayer_log_messages[] = {_MPLAYER_LOG_ITEMS};
-#undef _MPLAYER_LOGITEM_XMACRO
-// #endif // MAKER_DEBUG
+#if defined(MAKER_DEBUG)
+#define _MDECODER_LOGITEM_XMACRO(item, msg) #item ": " msg,
+_MAKER_PRIVATE const char *_mdecoder_log_messages[] = {_MDECODER_LOG_ITEMS};
+#undef _MDECODER_LOGITEM_XMACRO
+#endif // MAKER_DEBUG
 
 // clang-format off
-#define _MPLAYER_PANIC(code) _mplayer_log(MPLAYER_LOGITEM_ ##code, 0, 0, __LINE__)
-#define _MPLAYER_ERROR(code) _mplayer_log(MPLAYER_LOGITEM_ ##code, 1, 0, __LINE__)
-#define _MPLAYER_ERRORMSG(code,msg) _mplayer_log(MPLAYER_LOGITEM_ ##code, 1, msg, __LINE__)
-#define _MPLAYER_WARN(code) _mplayer_log(MPLAYER_LOGITEM_ ##code, 2, 0, __LINE__)
-#define _MPLAYER_WARNMSG(code,msg) _mplayer_log(MPLAYER_LOGITEM_ ##code, 2, msg, __LINE__)
-#define _MPLAYER_INFO(code) _mplayer_log(MPLAYER_LOGITEM_ ##code, 3, 0, __LINE__)
+#define _MDECODER_PANIC(code) _mdecoder_log(MDECODER_LOGITEM_ ##code, 0, 0, __LINE__)
+#define _MDECODER_ERROR(code) _mdecoder_log(MDECODER_LOGITEM_ ##code, 1, 0, __LINE__)
+#define _MDECODER_ERRORMSG(code,msg) _mdecoder_log(MDECODER_LOGITEM_ ##code, 1, msg, __LINE__)
+#define _MDECODER_WARN(code) _mdecoder_log(MDECODER_LOGITEM_ ##code, 2, 0, __LINE__)
+#define _MDECODER_WARNMSG(code,msg) _mdecoder_log(MDECODER_LOGITEM_ ##code, 2, msg, __LINE__)
+#define _MDECODER_INFO(code) _mdecoder_log(MDECODER_LOGITEM_ ##code, 3, 0, __LINE__)
 // clang-format on
 
-_MAKER_PRIVATE void _mplayer_log(mplayer_log_item log_item, uint32_t log_level,
-                                 const char *msg, uint32_t line_nr) {
-    if (_mplayer.desc.logger.func) {
+_MAKER_PRIVATE void _mdecoder_log(mdecoder_log_item log_item,
+                                  uint32_t log_level, const char *msg,
+                                  uint32_t line_nr) {
+    if (_mdecoder.desc.logger.func) {
         const char *filename = 0;
-        // #if defined(MAKER_DEBUG)
+#if defined(MAKER_DEBUG)
         filename = __FILE__;
         if (0 == msg) {
-            msg = _mplayer_log_messages[log_item];
+            msg = _mdecoder_log_messages[log_item];
         }
-        // #endif
-        _mplayer.desc.logger.func("mplayer", log_level, log_item, msg, line_nr,
-                                  filename, _mplayer.desc.logger.user_data);
+#endif
+        _mdecoder.desc.logger.func("mdecoder", log_level, log_item, msg,
+                                   line_nr, filename,
+                                   _mdecoder.desc.logger.user_data);
     } else {
         // for log level PANIC it would be 'undefined behaviour' to continue
         if (log_level == 0) {
@@ -52,7 +55,7 @@ _MAKER_PRIVATE void _mplayer_log(mplayer_log_item log_item, uint32_t log_level,
 }
 
 // >>debugging
-_MAKER_PRIVATE void _mplayer_debug_stream(AVStream *stream) {
+_MAKER_PRIVATE void _mdecoder_debug_stream(AVStream *stream) {
     fprintf(stdout, "AVStream->time_base before open coded %d/%d\n",
             stream->time_base.num, stream->time_base.den);
     fprintf(stdout, "AVStream->r_frame_rate before open coded %d/%d\n",
@@ -61,8 +64,8 @@ _MAKER_PRIVATE void _mplayer_debug_stream(AVStream *stream) {
     fprintf(stdout, "AVStream->duration %lld\n", stream->duration);
 }
 
-_MAKER_PRIVATE void _mplayer_debug_codec(const AVCodec *codec,
-                                         AVStream *stream) {
+_MAKER_PRIVATE void _mdecoder_debug_codec(const AVCodec *codec,
+                                          AVStream *stream) {
     if (codec == NULL) {
         fprintf(stderr, "Couldn't find codec info");
         exit(1);
@@ -76,7 +79,7 @@ _MAKER_PRIVATE void _mplayer_debug_codec(const AVCodec *codec,
 }
 
 // >>save frame into file
-// _MAKER_PRIVATE void _mplayer_save_gray_frame(unsigned char *buf, int wrap,
+// _MAKER_PRIVATE void _mdecoder_save_gray_frame(unsigned char *buf, int wrap,
 // int xsize,
 //                                      int ysize, char *filename) {
 //     FILE *f;
@@ -89,9 +92,9 @@ _MAKER_PRIVATE void _mplayer_debug_codec(const AVCodec *codec,
 //     fclose(f);
 // }
 
-_MAKER_PRIVATE void _mplayer_save_rgb_frame(unsigned char *buf, int wrap,
-                                            int xsize, int ysize,
-                                            char *filename) {
+_MAKER_PRIVATE void _mdecoder_save_rgb_frame(unsigned char *buf, int wrap,
+                                             int xsize, int ysize,
+                                             char *filename) {
     FILE *f;
     int i;
     f = fopen(filename, "wb");
@@ -103,55 +106,55 @@ _MAKER_PRIVATE void _mplayer_save_rgb_frame(unsigned char *buf, int wrap,
 }
 
 // >>resources
-_MAKER_PRIVATE AVFormatContext *_mplayer_alloc_format_context(void) {
+_MAKER_PRIVATE AVFormatContext *_mdecoder_alloc_format_context(void) {
     AVFormatContext *format_context = avformat_alloc_context();
     if (!format_context) {
-        _MPLAYER_PANIC(AVFORMAT_ALLOC_FAILED);
+        _MDECODER_PANIC(AVFORMAT_ALLOC_FAILED);
     }
     return format_context;
 }
 
-_MAKER_PRIVATE AVFormatContext *_mplayer_open_file(const char *filename) {
-    AVFormatContext *format_context = _mplayer_alloc_format_context();
+_MAKER_PRIVATE AVFormatContext *_mdecoder_open_file(const char *filename) {
+    AVFormatContext *format_context = _mdecoder_alloc_format_context();
 
     if (avformat_open_input(&format_context, filename, NULL, NULL) != 0) {
-        _MPLAYER_PANIC(AVFORMAT_OPEN_FILE_FAILED);
+        _MDECODER_PANIC(AVFORMAT_OPEN_FILE_FAILED);
     }
 
     if (avformat_find_stream_info(format_context, NULL) < 0) {
-        _MPLAYER_PANIC(AVFORMAT_FIND_STREAM_INFO_FAILED);
+        _MDECODER_PANIC(AVFORMAT_FIND_STREAM_INFO_FAILED);
     }
 
     return format_context;
 }
 
 _MAKER_PRIVATE AVCodecContext *
-_mplayer_alloc_codec_context(const AVCodec *codec) {
+_mdecoder_alloc_codec_context(const AVCodec *codec) {
     AVCodecContext *codec_context = avcodec_alloc_context3(codec);
     if (!codec_context) {
-        _MPLAYER_PANIC(AVCODEC_ALLOC_CONTEXT_FAILED);
+        _MDECODER_PANIC(AVCODEC_ALLOC_CONTEXT_FAILED);
     }
     return codec_context;
 }
 
-_MAKER_PRIVATE AVFrame *_mplayer_alloc_frame(void) {
+_MAKER_PRIVATE AVFrame *_mdecoder_alloc_frame(void) {
     AVFrame *frame = av_frame_alloc();
     if (!frame) {
-        _MPLAYER_PANIC(AVUTIL_FRAME_ALLOC_FAILED);
+        _MDECODER_PANIC(AVUTIL_FRAME_ALLOC_FAILED);
     }
     return frame;
 }
 
-_MAKER_PRIVATE AVPacket *_mplayer_alloc_packet(void) {
+_MAKER_PRIVATE AVPacket *_mdecoder_alloc_packet(void) {
     AVPacket *packet = av_packet_alloc();
     if (!packet) {
-        _MPLAYER_PANIC(AVUTIL_PACKET_ALLOC_FAILED);
+        _MDECODER_PANIC(AVUTIL_PACKET_ALLOC_FAILED);
     }
     return packet;
 }
 
-_MAKER_PRIVATE int _mplayer_decode_packet(AVPacket *packet, AVFrame *frame,
-                                          AVCodecContext *context) {
+_MAKER_PRIVATE int _mdecoder_decode_packet(AVPacket *packet, AVFrame *frame,
+                                           AVCodecContext *context) {
     char buffer[1024];
 
     int response = 0;
@@ -161,7 +164,7 @@ _MAKER_PRIVATE int _mplayer_decode_packet(AVPacket *packet, AVFrame *frame,
         snprintf(buffer, sizeof(buffer),
                  "Error while sending a packet to the decoder: %s\n",
                  av_err2str(response));
-        _MPLAYER_WARNMSG(AVCODEC_SEND_PACKET_FAILED, buffer);
+        _MDECODER_WARNMSG(AVCODEC_SEND_PACKET_FAILED, buffer);
         return response;
     }
 
@@ -176,7 +179,7 @@ _MAKER_PRIVATE int _mplayer_decode_packet(AVPacket *packet, AVFrame *frame,
             snprintf(buffer, sizeof(buffer),
                      "Error while receiving a frame from the decoder: %s\n",
                      av_err2str(response));
-            _MPLAYER_WARNMSG(AVCODEC_RECEIVE_FRAME_FAILED, buffer);
+            _MDECODER_WARNMSG(AVCODEC_RECEIVE_FRAME_FAILED, buffer);
             return response;
         }
 
@@ -190,7 +193,7 @@ _MAKER_PRIVATE int _mplayer_decode_packet(AVPacket *packet, AVFrame *frame,
 
         uint8_t *ibuffer = (uint8_t *)av_malloc(byteCount * sizeof(uint8_t));
 
-        AVFrame *rgb_frame = _mplayer.frame;
+        AVFrame *rgb_frame = _mdecoder.frame;
         rgb_frame->width = context->width;
         rgb_frame->height = context->height;
         rgb_frame->format = fmt;
@@ -211,10 +214,10 @@ _MAKER_PRIVATE int _mplayer_decode_packet(AVPacket *packet, AVFrame *frame,
 
         snprintf(buffer, sizeof(buffer), "%s-%" PRId64 ".ppm", "output",
                  context->frame_num);
-        // _mplayer_save_gray_frame(rgb_frame->data[0], rgb_frame->linesize[0],
+        // _mdecoder_save_gray_frame(rgb_frame->data[0], rgb_frame->linesize[0],
         //                          context->width, context->height, buffer);
-        _mplayer_save_rgb_frame(rgb_frame->data[0], rgb_frame->linesize[0],
-                                context->width, context->height, buffer);
+        _mdecoder_save_rgb_frame(rgb_frame->data[0], rgb_frame->linesize[0],
+                                 context->width, context->height, buffer);
 
         av_free(ibuffer);
     }
@@ -223,19 +226,23 @@ _MAKER_PRIVATE int _mplayer_decode_packet(AVPacket *packet, AVFrame *frame,
 }
 
 // >>public
-void mplayer_setup(const mplayer_desc *desc) {
-    MAKER_ASSERT(!_mplayer.setup_called);
+void mdecoder_setup(const mdecoder_desc *desc) {
+    MAKER_ASSERT(!_mdecoder.setup_called);
     MAKER_ASSERT(desc);
-    _mplayer.desc = *desc;
-    _mplayer.frame = _mplayer_alloc_frame();
+    _mdecoder.desc = *desc;
+    _mdecoder.frame = _mdecoder_alloc_frame();
 }
 
-void mplayer_cleanup(void) { av_frame_free(&_mplayer.frame); }
+void mdecoder_cleanup(void) { av_frame_free(&_mdecoder.frame); }
 
-mplayer_media mplayer_open_file(const char *filename) {
-    mplayer_media media;
+mdecoder_media mdecoder_create_media(const mdecoder_create_media_desc *desc) {
+    MAKER_ASSERT(desc->filename);
 
-    AVFormatContext *format_context = _mplayer_open_file(filename);
+    mdecoder_media media = {0};
+    media.filename = desc->filename;
+    media.video.pixel_format = desc->pixel_format;
+
+    AVFormatContext *format_context = _mdecoder_open_file(desc->filename);
     media.format_context = format_context;
 
     printf("format %s, duration %lld us, bit_rate %lld\n",
@@ -244,56 +251,58 @@ mplayer_media mplayer_open_file(const char *filename) {
 
     for (unsigned int i = 0; i < format_context->nb_streams; i++) {
         AVStream *stream = format_context->streams[i];
-        _mplayer_debug_stream(stream);
+        _mdecoder_debug_stream(stream);
 
         AVCodecParameters *codec_parameters = stream->codecpar;
         const AVCodec *codec = avcodec_find_decoder(codec_parameters->codec_id);
         if (codec == NULL) {
-            _MPLAYER_PANIC(AVCODEC_FIND_CODEC_FAILED);
+            _MDECODER_PANIC(AVCODEC_FIND_CODEC_FAILED);
         }
 
-        _mplayer_debug_codec(codec, stream);
+        _mdecoder_debug_codec(codec, stream);
 
         if (codec->type == AVMEDIA_TYPE_VIDEO) {
-            media.video_codec = codec;
-            media.video_stream_index = i;
-            media.has_video_stream = true;
+            media.video.codec = codec;
+            media.video.stream_index = i;
+            media.video.width = codec_parameters->width;
+            media.video.height = codec_parameters->height;
+            media.video.has_stream = true;
         }
     }
 
     return media;
 }
 
-void mplayer_decode_media(const mplayer_media *media) {
-    MAKER_ASSERT(media.has_video_stream);
+void mdecoder_decode_media(const mdecoder_media *media) {
+    MAKER_ASSERT(media->video.has_stream);
     int err;
 
     AVCodecContext *codec_context =
-        _mplayer_alloc_codec_context(media->video_codec);
+        _mdecoder_alloc_codec_context(media->video.codec);
 
     AVStream *stream =
-        media->format_context->streams[media->video_stream_index];
+        media->format_context->streams[media->video.stream_index];
     AVCodecParameters *codec_parameters = stream->codecpar;
 
     err = avcodec_parameters_to_context(codec_context, codec_parameters);
     if (err < 0) {
-        _MPLAYER_ERROR(AVCODEC_COPY_PARAM_TO_CONTEXT_FAILED);
+        _MDECODER_ERROR(AVCODEC_COPY_PARAM_TO_CONTEXT_FAILED);
     }
 
-    err = avcodec_open2(codec_context, media->video_codec, NULL);
+    err = avcodec_open2(codec_context, media->video.codec, NULL);
     if (err < 0) {
-        _MPLAYER_ERRORMSG(AVCODEC_OPEN_CODEC_FAILED, av_err2str(err));
-        _MPLAYER_PANIC(AVCODEC_OPEN_CODEC_FAILED);
+        _MDECODER_ERRORMSG(AVCODEC_OPEN_CODEC_FAILED, av_err2str(err));
+        _MDECODER_PANIC(AVCODEC_OPEN_CODEC_FAILED);
     }
 
-    AVFrame *frame = _mplayer_alloc_frame();
-    AVPacket *packet = _mplayer_alloc_packet();
+    AVFrame *frame = _mdecoder_alloc_frame();
+    AVPacket *packet = _mdecoder_alloc_packet();
 
     int response = 0;
     int packet_count = 1;
     while (av_read_frame(media->format_context, packet) >= 0) {
-        if (packet->stream_index == (int)media->video_stream_index) {
-            response = _mplayer_decode_packet(packet, frame, codec_context);
+        if (packet->stream_index == (int)media->video.stream_index) {
+            response = _mdecoder_decode_packet(packet, frame, codec_context);
             if (response < 0) {
                 break;
             }
@@ -308,34 +317,34 @@ void mplayer_decode_media(const mplayer_media *media) {
     avcodec_free_context(&codec_context);
 }
 
-mplayer_pixel_data mplayer_alloc_pixel_data(void) {
-    MAKER_ASSERT(_mplayer.frame);
-    int size =
-        av_image_get_buffer_size(_mplayer.frame->format, _mplayer.frame->width,
-                                 _mplayer.frame->height, 1);
-    mplayer_pixel_data data;
+mdecoder_pixel_data mdecoder_alloc_pixel_data(void) {
+    MAKER_ASSERT(_mdecoder.frame);
+    int size = av_image_get_buffer_size(_mdecoder.frame->format,
+                                        _mdecoder.frame->width,
+                                        _mdecoder.frame->height, 1);
+    mdecoder_pixel_data data;
     data.buffer = malloc(size * sizeof(uint8_t));
     data.buffer_size = size;
-    data.width = _mplayer.frame->width;
-    data.height = _mplayer.frame->height;
-    data.format = _mplayer.frame->format;
+    data.width = _mdecoder.frame->width;
+    data.height = _mdecoder.frame->height;
+    data.format = _mdecoder.frame->format;
     return data;
 }
 
-void mplayer_free_pixel_data(mplayer_pixel_data *data) { free(data->buffer); }
+void mdecoder_free_pixel_data(mdecoder_pixel_data *data) { free(data->buffer); }
 
-void mplayer_get_pixels(mplayer_pixel_data *data) {
-    MAKER_ASSERT(_mplayer.frame);
+void mdecoder_get_pixels(const mdecoder_pixel_data *data) {
+    MAKER_ASSERT(_mdecoder.frame);
 
     int ret = av_image_copy_to_buffer(
         data->buffer, data->buffer_size,
-        (const uint8_t *const *)_mplayer.frame->data, _mplayer.frame->linesize,
-        data->format, data->width, data->height, 1);
+        (const uint8_t *const *)_mdecoder.frame->data,
+        _mdecoder.frame->linesize, data->format, data->width, data->height, 1);
 
     if (ret < 0) {
         char str[512];
         maker_strfmt(str, MAKER_LEN(str), "%s", av_err2str(ret));
-        _MPLAYER_ERRORMSG(AV_IMAGE_COPY_TO_BUFFER_FAILED, str);
-        _MPLAYER_PANIC(AV_IMAGE_COPY_TO_BUFFER_FAILED);
+        _MDECODER_ERRORMSG(AV_IMAGE_COPY_TO_BUFFER_FAILED, str);
+        _MDECODER_PANIC(AV_IMAGE_COPY_TO_BUFFER_FAILED);
     }
 }

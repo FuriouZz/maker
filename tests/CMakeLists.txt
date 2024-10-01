@@ -23,16 +23,15 @@ target_link_directories(test INTERFACE ${FFMPEG_LIBRARY_DIRS})
 target_include_directories(test INTERFACE ${FFMPEG_INCLUDE_DIRS})
 
 #=== TEST: hello world
-add_executable(test-hello-world "hello-world.c")
-target_link_libraries(test-hello-world test sokol microui)
-add_test(NAME TestHelloWorld COMMAND test-hello-world)
+add_executable(hello-world "hello-world.c")
+target_link_libraries(hello-world test sokol microui)
+add_test(NAME HelloWorld COMMAND hello-world)
 
 #=== TEST: decode
 add_executable(
-  test-decode 
+  decode 
   "decode.c"
-  "${CMAKE_SOURCE_DIR}/src/maker_player.c"
-  "${CMAKE_SOURCE_DIR}/src/maker_util.c"
+  "${MAKERLIB_SOURCES}"
 )
-target_link_libraries(test-decode test)
-add_test(NAME TestDecode COMMAND test-decode "${CMAKE_SOURCE_DIR}/tests/video.mp4")
+target_link_libraries(decode test)
+add_test(NAME Decode COMMAND test-decode "${CMAKE_SOURCE_DIR}/tests/video.mp4")

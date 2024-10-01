@@ -5,8 +5,7 @@
 #include "sokol_log.h"
 
 #define MAKER_DEBUG
-#define MAKER_PLAYER_IMPL
-#include "maker.h"
+#include "maker_decoder.h"
 #include "shaders/quad.glsl.h"
 
 static struct {
@@ -16,10 +15,12 @@ static struct {
 } state;
 
 static void init(void) {
-    mplayer_setup(&(mplayer_desc){.logger.func = slog_func});
-
-    const mplayer_media media = mplayer_open_file("tests/video.mp4");
-    mplayer_decode_media(&media);
+    mdecoder_setup(&(mdecoder_desc){.logger.func = slog_func});
+    const mdecoder_media media = mdecoder_create_media(
+        &(mdecoder_create_media_desc){.filename = "tests/video.mp4"});
+    mdecoder_decode_media(&media);
+    const mdecoder_pixel_data data = mdecoder_alloc_pixel_data();
+    mdecoder_get_pixels(&data);
 
     sg_setup(&(sg_desc){
         .environment = sglue_environment(),
@@ -34,9 +35,6 @@ static void init(void) {
         .mag_filter = SG_FILTER_LINEAR,
         .compare = SG_COMPAREFUNC_NEVER,
     });
-
-    mplayer_pixel_data data = mplayer_alloc_pixel_data();
-    mplayer_get_pixels(&data);
 
     sg_init_image(
         state.bindings.fs.images[SLOT_tex],

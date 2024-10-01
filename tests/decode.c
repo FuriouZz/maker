@@ -1,15 +1,16 @@
 #include "sokol_log.h"
 
 #define MAKER_DEBUG
-#include "../src/maker.h"
+#include "../src/maker_decoder.h"
 
 int main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
-    mplayer_setup(&(mplayer_desc){.logger.func = slog_func});
+    mdecoder_setup(&(mdecoder_desc){.logger.func = slog_func});
 
-    const mplayer_media media = mplayer_open_file(argv[1]);
-    mplayer_decode_media(&media);
+    const mdecoder_media media = mdecoder_create_media(
+        &(mdecoder_create_media_desc){.filename = argv[1]});
+    mdecoder_decode_media(&media);
 
     return 0;
 }

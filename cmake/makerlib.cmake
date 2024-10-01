@@ -1,4 +1,10 @@
-add_library(makerlib STATIC src/maker_player.c src/maker_util.c)
+set(
+  MAKERLIB_SOURCES
+  "${PROJECT_SOURCE_DIR}/src/maker_decoder.c"
+  "${PROJECT_SOURCE_DIR}/src/maker_util.c"
+)
+
+add_library(makerlib STATIC "${MAKERLIB_SOURCES}")
 target_link_libraries(makerlib requirements)
 target_link_libraries(makerlib microui)
 target_link_libraries(makerlib sokol)
