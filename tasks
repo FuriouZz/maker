@@ -41,7 +41,7 @@ function test {
   build
   cd ./build/tests
 
-  OPTS=""
+  OPTS="--verbose"
   if [ -n "$1" ]; then
     OPTS="$OPTS -R $1"
   fi

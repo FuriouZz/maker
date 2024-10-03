@@ -14,24 +14,22 @@ enable_testing()
 add_library(test INTERFACE)
 target_include_directories(test INTERFACE "${PROJECT_SOURCE_DIR}/src")
 
-target_link_libraries(
-  test 
-  INTERFACE sokol_log
-  ${FFMPEG_LIBRARIES}
-)
+target_link_libraries(test INTERFACE sokol_log ${FFMPEG_LIBRARIES})
 target_link_directories(test INTERFACE ${FFMPEG_LIBRARY_DIRS})
 target_include_directories(test INTERFACE ${FFMPEG_INCLUDE_DIRS})
 
 #=== TEST: hello world
-add_executable(hello-world "hello-world.c")
-target_link_libraries(hello-world test sokol microui)
-add_test(NAME HelloWorld COMMAND hello-world)
+add_executable(test_hello "test_hello.c")
+target_link_libraries(test_hello test sokol microui)
+add_test(NAME test_hello COMMAND test_hello)
 
 #=== TEST: decode
-add_executable(
-  decode 
-  "decode.c"
-  "${MAKERLIB_SOURCES}"
-)
-target_link_libraries(decode test)
-add_test(NAME Decode COMMAND test-decode "${CMAKE_SOURCE_DIR}/tests/video.mp4")
+add_executable(test_decode "test_decode.c" "${MAKERLIB_SOURCES}")
+target_link_libraries(test_decode test)
+add_test(NAME test_decode COMMAND test_decode "${CMAKE_SOURCE_DIR}/tests/video.mp4")
+
+#=== TEST: decode_video
+add_executable(test_decode_video "test_decode_video.c" "${MAKERLIB_SOURCES}")
+target_link_libraries(test_decode_video test sokol)
+add_test(NAME test_decode_video COMMAND test_decode_video "${CMAKE_SOURCE_DIR}/tests/video.mp4")
+

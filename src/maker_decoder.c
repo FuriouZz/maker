@@ -235,14 +235,12 @@ void mdecoder_setup(const mdecoder_desc *desc) {
 
 void mdecoder_cleanup(void) { av_frame_free(&_mdecoder.frame); }
 
-mdecoder_media mdecoder_create_media(const mdecoder_create_media_desc *desc) {
-    MAKER_ASSERT(desc->filename);
+mdecoder_media mdecoder_create_media(const char *filename) {
+    MAKER_ASSERT(filename);
 
-    mdecoder_media media = {0};
-    media.filename = desc->filename;
-    media.video.pixel_format = desc->pixel_format;
+    mdecoder_media media = {.filename = filename};
 
-    AVFormatContext *format_context = _mdecoder_open_file(desc->filename);
+    AVFormatContext *format_context = _mdecoder_open_file(media.filename);
     media.format_context = format_context;
 
     printf("format %s, duration %lld us, bit_rate %lld\n",
@@ -261,12 +259,18 @@ mdecoder_media mdecoder_create_media(const mdecoder_create_media_desc *desc) {
 
         _mdecoder_debug_codec(codec, stream);
 
-        if (codec->type == AVMEDIA_TYPE_VIDEO) {
+        if (codec->type == AVMEDIA_TYPE_VIDEO && !media.video.has_stream) {
             media.video.codec = codec;
             media.video.stream_index = i;
             media.video.width = codec_parameters->width;
             media.video.height = codec_parameters->height;
             media.video.has_stream = true;
+        }
+
+        if (codec->type == AVMEDIA_TYPE_AUDIO && !media.audio.has_stream) {
+            media.audio.codec = codec;
+            media.audio.stream_index = i;
+            media.audio.has_stream = true;
         }
     }
 
@@ -317,23 +321,23 @@ void mdecoder_decode_media(const mdecoder_media *media) {
     avcodec_free_context(&codec_context);
 }
 
-mdecoder_pixel_data mdecoder_alloc_pixel_data(void) {
+mdecoder_image_data mdecoder_alloc_image_data(const mdecoder_media *media) {
     MAKER_ASSERT(_mdecoder.frame);
     int size = av_image_get_buffer_size(_mdecoder.frame->format,
                                         _mdecoder.frame->width,
                                         _mdecoder.frame->height, 1);
-    mdecoder_pixel_data data;
+    mdecoder_image_data data;
     data.buffer = malloc(size * sizeof(uint8_t));
     data.buffer_size = size;
-    data.width = _mdecoder.frame->width;
-    data.height = _mdecoder.frame->height;
+    data.width = media->video.width;
+    data.height = media->video.height;
     data.format = _mdecoder.frame->format;
     return data;
 }
 
-void mdecoder_free_pixel_data(mdecoder_pixel_data *data) { free(data->buffer); }
+void mdecoder_free_image_data(mdecoder_image_data *data) { free(data->buffer); }
 
-void mdecoder_get_pixels(const mdecoder_pixel_data *data) {
+void mdecoder_get_pixels(const mdecoder_image_data *data) {
     MAKER_ASSERT(_mdecoder.frame);
 
     int ret = av_image_copy_to_buffer(

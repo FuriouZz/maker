@@ -45,11 +45,6 @@ typedef struct mdecoder_desc {
     mdecoder_logger logger;
 } mdecoder_desc;
 
-typedef struct mdecoder_create_media_desc {
-    const char *filename;
-    enum AVPixelFormat pixel_format;
-} mdecoder_create_media_desc;
-
 typedef struct mdecoder_media {
     const char *filename;
     AVFormatContext *format_context;
@@ -58,30 +53,36 @@ typedef struct mdecoder_media {
         int stream_index;
         int width;
         int height;
-        enum AVPixelFormat pixel_format;
         const AVCodec *codec;
     } video;
+    struct {
+        bool has_stream;
+        int stream_index;
+        const AVCodec *codec;
+    } audio;
 } mdecoder_media;
 
-typedef struct mdecoder_pixel_data {
+typedef struct mdecoder_image_data {
     uint8_t *buffer;
     int buffer_size;
     int width;
     int height;
     enum AVPixelFormat format;
-} mdecoder_pixel_data;
+} mdecoder_image_data;
 
 extern void mdecoder_setup(const mdecoder_desc *desc);
 
 extern void mdecoder_cleanup(void);
 
-extern mdecoder_media
-mdecoder_create_media(const mdecoder_create_media_desc *desc);
+extern mdecoder_media mdecoder_create_media(const char *filename);
 
 extern void mdecoder_decode_media(const mdecoder_media *media);
 
-extern mdecoder_pixel_data mdecoder_alloc_pixel_data(void);
+extern mdecoder_image_data
+mdecoder_alloc_image_data(const mdecoder_media *media);
 
-extern void mdecoder_get_pixels(const mdecoder_pixel_data *data);
+extern void mdecoder_get_pixels(const mdecoder_image_data *data);
+
+extern void mdecoder_free_pixel_data(const mdecoder_image_data *data);
 
 #endif
