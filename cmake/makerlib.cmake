@@ -1,6 +1,6 @@
 set(
   MAKERLIB_SOURCES
-  "${PROJECT_SOURCE_DIR}/src/maker_decoder.c"
+  "${PROJECT_SOURCE_DIR}/src/maker_play.c"
   "${PROJECT_SOURCE_DIR}/src/maker_util.c"
 )
 
