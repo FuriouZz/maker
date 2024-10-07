@@ -44,7 +44,6 @@ typedef struct mk_play_logger {
 } mk_play_logger;
 
 typedef struct mk_play_desc {
-  bool setup_called;
   mk_play_logger logger;
 } mk_play_desc;
 

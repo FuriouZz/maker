@@ -1,11 +1,11 @@
 
+#include "stdio.h"
+
 #include "sokol_app.h"
 #include "sokol_gfx.h"
 #include "sokol_glue.h"
 #include "sokol_log.h"
-#include <stdio.h>
 
-#define MAKER_DEBUG
 #include "../src/maker_play.h"
 #include "../src/shaders/quad.glsl.h"
 

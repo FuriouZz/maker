@@ -22,7 +22,7 @@ list(APPEND FFMPEG_OPTIONS "--enable-swscale")
 # list(APPEND FFMPEG_OPTIONS "--enable-libx264")
 
 ExternalProject_Add(
-  ffmpeg
+  ffmpeglibs
   URL "${PROJECT_SOURCE_DIR}/vendors/ffmpeg"
   BUILD_IN_SOURCE 1
   CONFIGURE_COMMAND ./configure ${FFMPEG_OPTIONS}
@@ -32,9 +32,13 @@ ExternalProject_Add(
   LOG_BUILD 1
   LOG_INSTALL 1
 )
-ExternalProject_Get_property(ffmpeg INSTALL_DIR)
+ExternalProject_Get_property(ffmpeglibs INSTALL_DIR)
 
 set(FFMPEG_FOUND true)
 set(FFMPEG_LIBRARY_DIRS "${INSTALL_DIR}/lib")
 set(FFMPEG_INCLUDE_DIRS "${INSTALL_DIR}/include")
-set(FFMPEG_LIBRARIES avutil swresample avcodec avformat swscale avfilter avdevice)
+
+add_library(ffmpeg INTERFACE)
+target_link_libraries(ffmpeg INTERFACE avutil swresample avcodec avformat swscale avfilter avdevice)
+target_link_directories(ffmpeg INTERFACE ${FFMPEG_LIBRARY_DIRS})
+target_include_directories(ffmpeg INTERFACE ${FFMPEG_INCLUDE_DIRS})

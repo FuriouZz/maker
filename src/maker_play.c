@@ -1,21 +1,16 @@
 
-#include "libavutil/avutil.h"
-#include "libavutil/rational.h"
+#include "stdint.h"
 #include "stdio.h"
 
-#include "libavcodec/avcodec.h"
-#include "libavcodec/packet.h"
-#include "libavformat/avformat.h"
 #include "libavutil/imgutils.h"
-#include "libswscale/swscale.h"
 
 #include "maker_internal.h"
 #include "maker_play.h"
 #include "maker_util.h"
-#include <stdint.h>
 
 // >>structs
 typedef struct {
+  bool setup_called;
   mk_play_desc desc;
 } _mk_play_state;
 
@@ -26,7 +21,7 @@ _MAKER_PRIVATE _mk_play_state _mk_play;
 #define _MK_PLAY_LOGITEM_XMACRO(item, msg) #item ": " msg,
 _MAKER_PRIVATE const char *_mk_play_log_messages[] = {_MK_PLAY_LOG_ITEMS};
 #undef _MK_PLAY_LOGITEM_XMACRO
-#endif // MAKER_DEBUG
+#endif
 
 // clang-format off
 #define _MK_PLAY_PANIC(code) _mk_play_log(MK_PLAY_LOGITEM_ ##code, 0, 0, __LINE__)
@@ -62,34 +57,9 @@ _MAKER_PRIVATE void _mk_play_log(
 }
 
 // >>debugging
-_MAKER_PRIVATE void _mdecoder_debug_stream(AVStream *stream) {
-  fprintf(
-      stdout, "AVStream->time_base before open coded %d/%d\n",
-      stream->time_base.num, stream->time_base.den
-  );
-  fprintf(
-      stdout, "AVStream->r_frame_rate before open coded %d/%d\n",
-      stream->r_frame_rate.num, stream->r_frame_rate.den
-  );
-  fprintf(stdout, "AVStream->start_time %lld\n", stream->start_time);
-  fprintf(stdout, "AVStream->duration %lld\n", stream->duration);
-}
-
-_MAKER_PRIVATE void
-_mdecoder_debug_codec(const AVCodec *codec, AVStream *stream) {
-  if (codec == NULL) {
-    fprintf(stderr, "Couldn't find codec info");
-    exit(1);
-  }
-
-  if (codec->type == AVMEDIA_TYPE_VIDEO) {
-    AVCodecParameters *codec_parameters = stream->codecpar;
-    fprintf(
-        stdout, "Video Codec: resolution %d x %d\n", codec_parameters->width,
-        codec_parameters->height
-    );
-  }
-}
+#if defined(MAKER_DEBUG)
+#include "maker_play_debug.h"
+#endif
 
 // >>resources
 _MAKER_PRIVATE AVFormatContext *_mdecoder_alloc_format_context(void) {
@@ -199,7 +169,7 @@ _mk_play_get_av_pixel_format(mk_play_pixel_format px_fmt) {
 
 // >> public
 void mk_play_setup(const mk_play_desc *desc) {
-  MAKER_ASSERT(!_mdecoder.setup_called);
+  MAKER_ASSERT(!_mk_play.setup_called);
   MAKER_ASSERT(desc);
   _mk_play.desc = *desc;
 }
@@ -268,7 +238,10 @@ mk_play_media mk_play_alloc_media(const char *filename) {
 
   for (unsigned int i = 0; i < format_context->nb_streams; i++) {
     AVStream *stream = format_context->streams[i];
-    _mdecoder_debug_stream(stream);
+
+#if defined(MAKER_DEBUG)
+    _mk_play_debug_stream(stream);
+#endif
 
     AVCodecParameters *codec_parameters = stream->codecpar;
     const AVCodec *codec = avcodec_find_decoder(codec_parameters->codec_id);
@@ -276,7 +249,9 @@ mk_play_media mk_play_alloc_media(const char *filename) {
       _MK_PLAY_PANIC(AVCODEC_FIND_CODEC_FAILED);
     }
 
-    _mdecoder_debug_codec(codec, stream);
+#if defined(MAKER_DEBUG)
+    _mk_play_debug_codec(codec, stream);
+#endif
 
     if (codec->type == AVMEDIA_TYPE_VIDEO && !media.video.has_stream) {
       media.video.codec = codec;
