@@ -12,7 +12,7 @@ void main() {
     // uv = texcoord0;
     uv = vec2(
         position.x + 0.5,
-        position.y + 0.5
+        -position.y + 0.5
     );
 }
 @end

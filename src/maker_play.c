@@ -1,4 +1,5 @@
 
+#include "libavutil/rational.h"
 #include "stdint.h"
 #include "stdio.h"
 
@@ -62,7 +63,7 @@ _MAKER_PRIVATE void _mk_play_log(
 #endif
 
 // >>resources
-_MAKER_PRIVATE AVFormatContext *_mdecoder_alloc_format_context(void) {
+_MAKER_PRIVATE AVFormatContext *_mk_play_alloc_format_context(void) {
   AVFormatContext *format_context = avformat_alloc_context();
   if (!format_context) {
     _MK_PLAY_PANIC(AVFORMAT_ALLOC_FAILED);
@@ -70,8 +71,8 @@ _MAKER_PRIVATE AVFormatContext *_mdecoder_alloc_format_context(void) {
   return format_context;
 }
 
-_MAKER_PRIVATE AVFormatContext *_mdecoder_open_file(const char *filename) {
-  AVFormatContext *format_context = _mdecoder_alloc_format_context();
+_MAKER_PRIVATE AVFormatContext *_mk_play_open_file(const char *filename) {
+  AVFormatContext *format_context = _mk_play_alloc_format_context();
 
   if (avformat_open_input(&format_context, filename, NULL, NULL) != 0) {
     _MK_PLAY_PANIC(AVFORMAT_OPEN_FILE_FAILED);
@@ -84,8 +85,8 @@ _MAKER_PRIVATE AVFormatContext *_mdecoder_open_file(const char *filename) {
   return format_context;
 }
 
-_MAKER_PRIVATE AVCodecContext *
-_mdecoder_alloc_codec_context(const AVCodec *codec) {
+_MAKER_PRIVATE AVCodecContext *_mk_play_alloc_codec_context(const AVCodec *codec
+) {
   AVCodecContext *codec_context = avcodec_alloc_context3(codec);
   if (!codec_context) {
     _MK_PLAY_PANIC(AVCODEC_ALLOC_CONTEXT_FAILED);
@@ -93,7 +94,7 @@ _mdecoder_alloc_codec_context(const AVCodec *codec) {
   return codec_context;
 }
 
-_MAKER_PRIVATE AVFrame *_mdecoder_alloc_frame(void) {
+_MAKER_PRIVATE AVFrame *_mk_play_alloc_frame(void) {
   AVFrame *frame = av_frame_alloc();
   if (!frame) {
     _MK_PLAY_PANIC(AVUTIL_FRAME_ALLOC_FAILED);
@@ -101,7 +102,7 @@ _MAKER_PRIVATE AVFrame *_mdecoder_alloc_frame(void) {
   return frame;
 }
 
-_MAKER_PRIVATE AVPacket *_mdecoder_alloc_packet(void) {
+_MAKER_PRIVATE AVPacket *_mk_play_alloc_packet(void) {
   AVPacket *packet = av_packet_alloc();
   if (!packet) {
     _MK_PLAY_PANIC(AVUTIL_PACKET_ALLOC_FAILED);
@@ -167,6 +168,165 @@ _mk_play_get_av_pixel_format(mk_play_pixel_format px_fmt) {
   }
 }
 
+_MAKER_PRIVATE int _mk_play_decode_video(
+    int stream_index, AVFormatContext *format_context,
+    AVCodecContext *codec_context, AVFrame *frame, long seek_target
+) {
+  AVStream *stream = format_context->streams[stream_index];
+  double stream_timebase = av_q2d(stream->time_base) * 1000.0 * 10000.0;
+
+  char buffer[512];
+  int result;
+
+  AVPacket *packet = av_packet_alloc();
+
+  for (;;) {
+    result = av_read_frame(format_context, packet);
+
+    // Hangle EOF/error
+    if (result != 0) {
+      break;
+    }
+
+    // Accept only video stream
+    if (packet->stream_index != stream_index) {
+      av_packet_unref(packet);
+      continue;
+    }
+
+    // Send packet for decoding
+    result = avcodec_send_packet(codec_context, packet);
+
+    // Handle EOF/error
+    if (result != 0) {
+      snprintf(
+          buffer, sizeof(buffer),
+          "Error while sending a packet to the decoder: %s\n",
+          av_err2str(result)
+      );
+      _MK_PLAY_WARNMSG(AVCODEC_SEND_PACKET_FAILED, buffer);
+      av_packet_unref(packet);
+      break;
+    }
+
+    for (;;) {
+      result = avcodec_receive_frame(codec_context, frame);
+
+      if (result == AVERROR(EAGAIN) || result == AVERROR_EOF) {
+        av_frame_unref(frame);
+        break;
+      }
+
+      if (result < 0) {
+        snprintf(
+            buffer, sizeof(buffer),
+            "Error while receiving a frame from the decoder: %s\n",
+            av_err2str(result)
+        );
+        _MK_PLAY_WARNMSG(AVCODEC_RECEIVE_FRAME_FAILED, buffer);
+        av_frame_unref(frame);
+        break;
+      }
+
+      // Get frame pts (prefer best_effort_timestamp)
+      long current_pts = frame->best_effort_timestamp == AV_NOPTS_VALUE
+                             ? frame->pts
+                             : frame->best_effort_timestamp;
+      if (current_pts == AV_NOPTS_VALUE) {
+        av_frame_unref(frame);
+        continue;
+      }
+
+      printf(
+          "[Skip] [pts %ld] [time: %ld]\n", current_pts,
+          current_pts * (long)stream_timebase
+      );
+
+      if ((long)(current_pts * stream_timebase) / 10000 < seek_target / 10000) {
+        av_frame_unref(frame);
+        continue;
+      }
+
+      printf(
+          "[Found] [pts %ld] [time: %ld]\n", current_pts,
+          current_pts * (long)stream_timebase
+      );
+      return 0;
+    }
+  }
+
+  av_packet_free(&packet);
+
+  return result;
+}
+
+_MAKER_PRIVATE int _mk_play_seek_to_frame(
+    int stream_index, int frame_index, AVFormatContext *format_context,
+    AVCodecContext *codec_context, AVFrame *frame
+) {
+  int result;
+  AVStream *stream = format_context->streams[stream_index];
+
+  // double stream_timebase = av_q2d(stream->time_base) * 1000.0 * 10000.0;
+  // long start_time = stream->start_time != AV_NOPTS_VALUE
+  //                       ? (long)(stream->start_time * stream_timebase)
+  //                       : 0;
+  // double avg_frame_duration = 10000000 / av_q2d(stream->avg_frame_rate);
+
+  // long seek_target = (long)(frame_index * avg_frame_duration);
+
+  // int result = av_seek_frame(
+  //     format_context, -1, (seek_target + start_time) / 10,
+  //     AVSEEK_FLAG_FRAME | AVSEEK_FLAG_BACKWARD
+  // );
+
+  int64_t seek_ts = frame_index * 60 * stream->time_base.den;
+  int64_t seek_target = seek_ts / (stream->time_base.num);
+
+  result = av_seek_frame(
+      format_context, stream_index, seek_target,
+      AVSEEK_FLAG_FRAME | AVSEEK_FLAG_BACKWARD
+  );
+
+  if (result >= 0) {
+    avcodec_flush_buffers(codec_context);
+  }
+
+  result = _mk_play_decode_video(
+      stream_index, format_context, codec_context, frame, seek_target
+  );
+
+  return result;
+}
+
+_MAKER_PRIVATE int _mk_play_seek_to_time(
+    int stream_index, uint64_t time, AVFormatContext *format_context,
+    AVCodecContext *codec_context, AVFrame *frame
+) {
+
+  AVRational ds = {1, AV_TIME_BASE};
+  long seek_time =
+      av_rescale_q(time, ds, format_context->streams[stream_index]->time_base);
+  long duration = format_context->streams[stream_index]->duration;
+
+  int flags = AVSEEK_FLAG_BACKWARD;
+  if (seek_time > 0 && seek_time < duration) {
+    flags |= AVSEEK_FLAG_ANY;
+  }
+
+  int result = av_seek_frame(format_context, stream_index, seek_time, flags);
+  if (result != 0) {
+    result =
+        av_seek_frame(format_context, stream_index, seek_time, AVSEEK_FLAG_ANY);
+  }
+
+  result = _mk_play_decode_video(
+      stream_index, format_context, codec_context, frame, seek_time
+  );
+
+  return result;
+}
+
 // >> public
 void mk_play_setup(const mk_play_desc *desc) {
   MAKER_ASSERT(!_mk_play.setup_called);
@@ -184,7 +344,7 @@ mk_play_decode_context mk_play_alloc_decode_context(
   int err;
 
   AVCodecContext *codec_context =
-      _mdecoder_alloc_codec_context(media->video.codec);
+      _mk_play_alloc_codec_context(media->video.codec);
 
   AVStream *stream = media->format_context->streams[media->video.stream_index];
   AVCodecParameters *codec_parameters = stream->codecpar;
@@ -227,7 +387,7 @@ mk_play_media mk_play_alloc_media(const char *filename) {
 
   mk_play_media media = {.filename = filename};
 
-  AVFormatContext *format_context = _mdecoder_open_file(media.filename);
+  AVFormatContext *format_context = _mk_play_open_file(media.filename);
   media.format_context = format_context;
 
   // printf(
@@ -295,116 +455,22 @@ void mk_play_free_image_data(const mk_play_image_data *image_data) {
   free(image_data->buffer);
 }
 
-_MAKER_PRIVATE int64_t FrameToPts(AVStream *pavStream, int frame) {
-  int64_t target_dts_usecs = (int64_t)round(
-      frame * (double)pavStream->r_frame_rate.den /
-      pavStream->r_frame_rate.num * AV_TIME_BASE
-  );
-  int64_t first_dts_usecs = (int64_t)round(
-      pavStream->pts_wrap_bits * (double)pavStream->time_base.num /
-      pavStream->time_base.den * AV_TIME_BASE
-  );
-  target_dts_usecs += first_dts_usecs;
-
-  return target_dts_usecs;
-}
-
 int mk_play_seek(
     const mk_play_decode_context *decode_context, const mk_play_media *media,
-    int64_t index
+    int64_t frame
 ) {
-  AVStream *stream = media->format_context->streams[media->video.stream_index];
+  // AVStream *stream =
+  // media->format_context->streams[media->video.stream_index]; int64_t pts =
+  // FrameToPts(stream, frame);
 
-  double stream_timebase = av_q2d(stream->time_base) * 1000.0 * 10000.0;
-  long start_time = stream->start_time != AV_NOPTS_VALUE
-                        ? (long)(stream->start_time * stream_timebase)
-                        : 0;
-  double avg_frame_duration = 10000000 / av_q2d(stream->avg_frame_rate);
-
-  long frame_timestamp = (long)(index * avg_frame_duration);
-
-  int result = av_seek_frame(
-      media->format_context, -1, (frame_timestamp + start_time) / 10,
-      AVSEEK_FLAG_FRAME | AVSEEK_FLAG_BACKWARD
+  // return _mk_play_seek_to_time(
+  //     media->video.stream_index, pts, media->format_context,
+  //     decode_context->codec_context, decode_context->frame
+  // );
+  return _mk_play_seek_to_frame(
+      media->video.stream_index, frame, media->format_context,
+      decode_context->codec_context, decode_context->frame
   );
-
-  char buffer[1024];
-  AVPacket *packet = av_packet_alloc();
-  AVFrame *frame = decode_context->frame;
-
-  for (;;) {
-    result = av_read_frame(media->format_context, packet);
-
-    // Hangle EOF/error
-    if (result != 0) {
-      break;
-    }
-
-    // Accept only video stream
-    if (packet->stream_index != media->video.stream_index) {
-      av_packet_unref(packet);
-      continue;
-    }
-
-    // Send packet for decoding
-    result = avcodec_send_packet(decode_context->codec_context, packet);
-
-    // Handle EOF/error
-    if (result != 0) {
-      snprintf(
-          buffer, sizeof(buffer),
-          "Error while sending a packet to the decoder: %s\n",
-          av_err2str(result)
-      );
-      _MK_PLAY_WARNMSG(AVCODEC_SEND_PACKET_FAILED, buffer);
-      av_packet_unref(packet);
-      break;
-    }
-
-    for (;;) {
-      result = avcodec_receive_frame(decode_context->codec_context, frame);
-
-      if (result == AVERROR(EAGAIN) || result == AVERROR_EOF) {
-        av_frame_unref(frame);
-        break;
-      }
-
-      if (result < 0) {
-        snprintf(
-            buffer, sizeof(buffer),
-            "Error while receiving a frame from the decoder: %s\n",
-            av_err2str(result)
-        );
-        _MK_PLAY_WARNMSG(AVCODEC_RECEIVE_FRAME_FAILED, buffer);
-        av_frame_unref(frame);
-        break;
-      }
-
-      // Get frame pts (prefer best_effort_timestamp)
-      long current_pts = frame->best_effort_timestamp == AV_NOPTS_VALUE
-                             ? frame->pts
-                             : frame->best_effort_timestamp;
-      if (current_pts == AV_NOPTS_VALUE) {
-        av_frame_unref(frame);
-        continue;
-      }
-
-      printf(
-          "[Skip] [pts %ld] [time: %ld]\n", current_pts,
-          current_pts * (long)stream_timebase
-      );
-
-      if ((long)(current_pts * stream_timebase) / 10000 <
-          frame_timestamp / 10000) {
-        av_frame_unref(frame);
-        continue;
-      }
-
-      return 0;
-    }
-  }
-
-  return result;
 }
 
 void mk_play_decode(

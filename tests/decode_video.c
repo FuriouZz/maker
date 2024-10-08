@@ -8,6 +8,7 @@
 
 #include "../src/maker_play.h"
 #include "../src/shaders/quad.glsl.h"
+#include <unistd.h>
 
 static struct {
   sg_pass_action pass_action;
@@ -19,8 +20,7 @@ static struct {
   mk_play_decode_context decode_context;
   mk_play_image_data image_data;
 
-  double time;
-  int64_t frame;
+  uint64_t time;
 } state;
 
 static void init(void) {
@@ -102,15 +102,13 @@ static void init(void) {
 }
 
 static void frame(void) {
-  state.time += 0.16;
-  state.frame += 1;
+  state.time = sapp_frame_count();
 
-  if (state.time > 10) {
+  if (state.time > 10 * 1000 * 1000) {
     state.time = 0;
   }
 
   if (mk_play_seek(&state.decode_context, &state.media, state.time) == 0) {
-    // mk_play_decode(&state.decode_context, &state.media);
     mk_play_get_pixels(&state.decode_context, &state.image_data);
 
     sg_update_image(
@@ -120,8 +118,6 @@ static void frame(void) {
               {.ptr = state.image_data.buffer,
                .size = state.image_data.buffer_size}}
     );
-
-    printf("time %f\n", state.time);
   }
 
   sg_begin_pass(&(sg_pass
@@ -139,7 +135,6 @@ sapp_desc sokol_main(int argc, char *argv[]) {
   (void)argc;
   (void)argv;
   state.filename = argv[1];
-  printf("%s", state.filename);
   return (sapp_desc){
       .init_cb = init,
       .frame_cb = frame,

@@ -66,16 +66,3 @@ else()
   endif()
 endif()
 target_include_directories(sokol INTERFACE "${SOKOL_DIR}")
-
-# #=== LIBRARY: sokol
-# add_library(sokol STATIC "${SOKOL_DIR}/sokol.c")
-# target_link_libraries(sokol sokol)
-# target_compile_definitions(sokol PUBLIC USE_SOKOL_GFX)
-# target_compile_definitions(sokol PUBLIC USE_SOKOL_APP)
-# target_compile_definitions(sokol PUBLIC USE_SOKOL_LOG)
-# target_compile_definitions(sokol PUBLIC USE_SOKOL_GLUE)
-
-# #=== LIBRARY: sokol-log
-# add_library(sokol_log STATIC "${SOKOL_DIR}/sokol.c")
-# target_link_libraries(sokol_log sokol)
-# target_compile_definitions(sokol_log PUBLIC USE_SOKOL_LOG)
