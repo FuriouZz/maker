@@ -1,7 +1,3 @@
-#include "pthread.h"
-#include "stdlib.h"
-#include "string.h"
-
 #include "maker_thread.h"
 
 typedef struct MKThread {

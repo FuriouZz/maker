@@ -1,14 +1,12 @@
-
-#include "stdio.h"
-
-#include "sokol_app.h"
-#include "sokol_gfx.h"
-#include "sokol_glue.h"
-#include "sokol_log.h"
-
-#include "../src/maker_play.h"
-#include "../src/shaders/quad.glsl.h"
+#include <sokol_app.h>
+#include <sokol_gfx.h>
+#include <sokol_glue.h>
+#include <sokol_log.h>
+#include <stdio.h>
 #include <unistd.h>
+
+#include <maker_play.h>
+#include <shaders/quad.glsl.h>
 
 static struct {
   sg_pass_action pass_action;
@@ -134,7 +132,7 @@ static void cleanup(void) { sg_shutdown(); }
 sapp_desc sokol_main(int argc, char *argv[]) {
   (void)argc;
   (void)argv;
-  state.filename = argv[1];
+  state.filename = "./tests/video.mp4";
   return (sapp_desc){
       .init_cb = init,
       .frame_cb = frame,

@@ -1,9 +1,8 @@
 #ifndef MAKER_PLAY_DEBUG_H
 #define MAKER_PLAY_DEBUG_H
-#include "stdio.h"
 
-#include "libavformat/avformat.h"
-#include "libavutil/avutil.h"
+#include <libavformat/avformat.h>
+#include <libavutil/avutil.h>
 
 #include "maker_internal.h"
 

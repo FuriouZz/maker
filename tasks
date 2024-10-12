@@ -11,25 +11,35 @@ function _shdc {
   --slang glsl430:hlsl5:metal_macos
 }
 
+function _cmake_generate {
+  _cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 \
+  -S . -B build \
+  --log-level=DEBUG $@
+}
+
+function _cmake_build {
+  _cmake --build build $@ &&\
+  rm ./compile_commands.json &&\
+  ln -s ./build/compile_commands.json
+}
+
 function install {
   : "Setup cmake project and sokol-tools"
-  git submodule update --init --recursive
-  _cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -S . -B build --log-level=DEBUG $@
-  rm ./compile_commands.json
-  ln -s ./build/compile_commands.json ./
+  git submodule update --init --recursive &&\
   install:tools
 }
 
 function install:tools {
   : "Install sokol-tools"
-  cd vendors/sokol-tools
+  cd vendors/sokol-tools &&\
   ./fips build
 }
 
 function build {
   : "Build"
- _shdc quad  
- _cmake --build build $@
+ _shdc quad &&\
+ _cmake_generate -DMAKER_APP=ON &&\
+ _cmake_build $@
 }
 
 function run {
@@ -38,12 +48,12 @@ function run {
 }
 
 function test {
-
   OPTS="--verbose"
   if [ -n "$1" ]; then
-    OPTS="$OPTS -R ^$1$"
+    OPTS="$OPTS -R ^test_$1$"
   fi
-  build &&\
+  _cmake_generate -DMAKER_TESTS=ON &&\
+  _cmake_build &&\
   cd ./build/tests &&\
   ctest $OPTS
 }

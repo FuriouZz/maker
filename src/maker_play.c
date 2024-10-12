@@ -1,9 +1,5 @@
-
-#include "libavutil/rational.h"
-#include "stdint.h"
-#include "stdio.h"
-
-#include "libavutil/imgutils.h"
+#include <libavutil/imgutils.h>
+#include <libavutil/rational.h>
 
 #include "maker_internal.h"
 #include "maker_play.h"

@@ -1,6 +1,12 @@
 #ifndef MAKER_INTERNAL_H
 #define MAKER_INTERNAL_H
 
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #ifndef _MAKER_PRIVATE
 #if defined(__GNUC__) || defined(__clang__)
 #define _MAKER_PRIVATE __attribute__((unused)) static

@@ -1,11 +1,13 @@
 #ifndef MAKER_PLAY_H
 #define MAKER_PLAY_H
 
-#include "stdbool.h"
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libswscale/swscale.h>
 
-#include "libavcodec/avcodec.h"
-#include "libavformat/avformat.h"
-#include "libswscale/swscale.h"
+#if defined(MAKER_DEBUG)
+#include "maker_play_debug.h"
+#endif
 
 // clang-format off
 #define _MK_PLAY_LOG_ITEMS \

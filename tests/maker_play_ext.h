@@ -1,7 +1,7 @@
 #ifndef MAKER_PLAY_EXT_H
 #define MAKER_PLAY_EXT_H
 
-#include "../src/maker_play.h"
+#include <maker_play.h>
 
 extern void
 mk_play_save_pgm(const mk_play_decode_context *context, char *output);
@@ -13,7 +13,7 @@ mk_play_save_ppm(const mk_play_decode_context *context, char *output);
 
 #ifdef MAKER_PLAY_EXT_IMPL
 
-#include "libavutil/imgutils.h"
+#include <libavutil/imgutils.h>
 
 static void _mk_play_save_gray_frame(
     unsigned char *buf, int wrap, int xsize, int ysize, char *filename

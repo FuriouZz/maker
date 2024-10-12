@@ -1,7 +1,9 @@
 #ifndef MAKER_THREAD_H
 #define MAKER_THREAD_H
 
-#include "pthread.h"
+#include <pthread.h>
+
+#include "maker_internal.h"
 
 /**
  * Thread function callback type
