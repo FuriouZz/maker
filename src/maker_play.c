@@ -1,9 +1,31 @@
+#include <maker/maker_play.h>
+
+#include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
-#include <libavutil/rational.h>
+#include <maker/maker_util.h>
 
 #include "maker_internal.h"
-#include "maker_play.h"
-#include "maker_util.h"
+
+// clang-format off
+#define _MK_PLAY_LOG_ITEMS \
+    _MK_PLAY_LOGITEM_XMACRO(OK, "Ok") \
+    _MK_PLAY_LOGITEM_XMACRO(AVFORMAT_ALLOC_FAILED, "Could not allocate memory for AVFormatContext") \
+    _MK_PLAY_LOGITEM_XMACRO(AVFORMAT_OPEN_FILE_FAILED, "Could not open file") \
+    _MK_PLAY_LOGITEM_XMACRO(AVFORMAT_FIND_STREAM_INFO_FAILED, "Could not open file") \
+    _MK_PLAY_LOGITEM_XMACRO(AVCODEC_FIND_CODEC_FAILED, "Could not find codec") \
+    _MK_PLAY_LOGITEM_XMACRO(AVCODEC_ALLOC_CONTEXT_FAILED, "Could not allocate memory for AVCodecContext") \
+    _MK_PLAY_LOGITEM_XMACRO(AVCODEC_OPEN_CODEC_FAILED, "Could not open codec") \
+    _MK_PLAY_LOGITEM_XMACRO(AVUTIL_FRAME_ALLOC_FAILED, "Could not allocate memory for AVFrame") \
+    _MK_PLAY_LOGITEM_XMACRO(AVUTIL_PACKET_ALLOC_FAILED, "Could not allocate memory for AVPacket") \
+    _MK_PLAY_LOGITEM_XMACRO(AVCODEC_SEND_PACKET_FAILED, "Error while sending a packet to the decoder") \
+    _MK_PLAY_LOGITEM_XMACRO(AVCODEC_RECEIVE_FRAME_FAILED, "Error while receiving a frame from the decoder") \
+    _MK_PLAY_LOGITEM_XMACRO(AVCODEC_COPY_PARAM_TO_CONTEXT_FAILED, "Failed to copy codec params to codec context") \
+    _MK_PLAY_LOGITEM_XMACRO(AV_IMAGE_COPY_TO_BUFFER_FAILED, "Failed to copy AVFrame to buffer") \
+
+#define _MK_PLAY_LOGITEM_XMACRO(item, msg) MK_PLAY_LOGITEM_##item,
+typedef enum mk_play_log_item { _MK_PLAY_LOG_ITEMS } mk_play_log_item;
+#undef _MK_PLAY_LOGITEM_XMACRO
+// clang-format on
 
 // >>structs
 typedef struct {
@@ -55,7 +77,34 @@ _MAKER_PRIVATE void _mk_play_log(
 
 // >>debugging
 #if defined(MAKER_DEBUG)
-#include "maker_play_debug.h"
+_MAKER_PRIVATE void _mk_play_debug_stream(AVStream *stream) {
+  fprintf(
+      stdout, "AVStream->time_base before open coded %d/%d\n",
+      stream->time_base.num, stream->time_base.den
+  );
+  fprintf(
+      stdout, "AVStream->r_frame_rate before open coded %d/%d\n",
+      stream->r_frame_rate.num, stream->r_frame_rate.den
+  );
+  fprintf(stdout, "AVStream->start_time %lld\n", stream->start_time);
+  fprintf(stdout, "AVStream->duration %lld\n", stream->duration);
+}
+
+_MAKER_PRIVATE void
+_mk_play_debug_codec(const AVCodec *codec, AVStream *stream) {
+  if (codec == NULL) {
+    fprintf(stderr, "Couldn't find codec info");
+    exit(1);
+  }
+
+  if (codec->type == AVMEDIA_TYPE_VIDEO) {
+    AVCodecParameters *codec_parameters = stream->codecpar;
+    fprintf(
+        stdout, "Video Codec: resolution %d x %d\n", codec_parameters->width,
+        codec_parameters->height
+    );
+  }
+}
 #endif
 
 // >>resources

@@ -1,4 +1,10 @@
-#include "maker_thread.h"
+#include <maker/maker_thread.h>
+
+#include <pthread.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "maker_internal.h"
 
 typedef struct MKThread {
   pthread_t handle;
@@ -8,7 +14,7 @@ typedef struct MKThread {
   void *userdata;
 } MKThread;
 
-static void *mk_thread_run(void *data) {
+_MAKER_PRIVATE void *mk_thread_run(void *data) {
   MKThread *thread = data;
   MKThreadFunction fn = thread->fn;
   int *status = &thread->status;
