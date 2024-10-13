@@ -1,7 +1,7 @@
 #ifndef MAKER_PLAY_EXT_H
 #define MAKER_PLAY_EXT_H
 
-#include <maker_play.h>
+#include <maker/maker_play.h>
 
 extern void
 mk_play_save_pgm(const mk_play_decode_context *context, char *output);

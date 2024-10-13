@@ -1,5 +1,5 @@
-#include "../src/maker_mutex.h"
-#include "../src/maker_thread.h"
+#include <maker/maker_mutex.h>
+#include <maker/maker_thread.h>
 #include <stdio.h>
 #include <unistd.h>
 

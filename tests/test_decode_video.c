@@ -2,11 +2,9 @@
 #include <sokol_gfx.h>
 #include <sokol_glue.h>
 #include <sokol_log.h>
-#include <stdio.h>
-#include <unistd.h>
 
-#include <maker_play.h>
-#include <shaders/quad.glsl.h>
+#include <maker/maker_play.h>
+#include <maker/shaders/quad.glsl.h>
 
 static struct {
   sg_pass_action pass_action;

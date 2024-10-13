@@ -7,8 +7,9 @@ function _cmake {
 function _shdc {
   ./vendors/fips-deploy/sokol-tools/osx-xcode-debug/sokol-shdc \
   --input src/shaders/$1.glsl \
-  --output src/shaders/$1.glsl.h \
-  --slang glsl430:hlsl5:metal_macos
+  --output include/maker/shaders/$1.glsl.h \
+  --slang glsl430:hlsl5:metal_macos \
+  --format sokol
 }
 
 function _cmake_generate {
@@ -38,7 +39,7 @@ function install:tools {
 function build {
   : "Build"
  _shdc quad &&\
- _cmake_generate -DMAKER_APP=ON &&\
+ _cmake_generate -DMAKER_APP=ON -DMAKER_TESTS=OFF &&\
  _cmake_build $@
 }
 
@@ -52,7 +53,7 @@ function test {
   if [ -n "$1" ]; then
     OPTS="$OPTS -R ^test_$1$"
   fi
-  _cmake_generate -DMAKER_TESTS=ON &&\
+  _cmake_generate -DMAKER_APP=OFF -DMAKER_TESTS=ON &&\
   _cmake_build &&\
   cd ./build/tests &&\
   ctest $OPTS

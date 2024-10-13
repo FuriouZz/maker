@@ -26,7 +26,8 @@ include(makerlib)
 #=== EXECUTABLE: maker
 if(MAKER_APP)
 add_executable(maker src/main.c)
-target_link_libraries(maker makerlib)
+target_link_libraries(maker makerlib sokol)
+target_compile_definitions(maker PUBLIC USE_SOKOL_APP)
 endif()
 
 #=== ADD_SUBDIRECTORIES: tests
