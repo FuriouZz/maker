@@ -10,15 +10,16 @@
 #include "maker_pool_c.h"
 
 _MAKER_PRIVATE MKMediaPoolItem *
-_mk_media_lookup(MKMediaPool *pool, uint32_t slot_id) {
+_mk_media_lookup(MKMediaPool *pool, MKPoolSlotId slot_id) {
   MAKER_ASSERT(&(pool->pool) && pool->pool.valid);
 
-  uint32_t slot_index = mk_pool_slot_index(slot_id);
-  MAKER_ASSERT((slot_index > 0) && (slot_index < pool->pool.size));
+  MKPoolSlotIndex slot_index = mk_pool_slot_index(slot_id);
+  MAKER_ASSERT((slot_index.index > 0) && (slot_index.index < pool->pool.size));
 
-  MKMediaPoolItem *item = &pool->items[slot_index];
+  MKMediaPoolItem *items = pool->items;
+  MKMediaPoolItem *item = &items[slot_index.index];
 
-  if (item->slot.id == slot_id) {
+  if (item->slot.id.id == slot_id.id) {
     return item;
   }
 
@@ -37,29 +38,36 @@ MKMedia mk_media_open(char *filename) {
   return media;
 }
 
-void mk_media_pool_init(MKMediaPool *pool, size_t item_count) {
-  MAKER_ASSERT(mk_pool_init(&pool->pool, item_count));
-  pool->items = maker_malloc(pool->pool.size * sizeof(MKMediaPoolItem));
-
-  if (!pool->items || !pool->pool.valid) {
-    maker_free(pool->items);
+bool mk_media_pool_init(MKMediaPool *pool, size_t item_count) {
+  // MAKER_ASSERT(0 == pool->items);
+  if (!mk_init_pool(&pool->pool, item_count)) {
+    return false;
   }
+
+  pool->items = maker_malloc_clear(pool->pool.size * sizeof(MKMediaPoolItem));
+  if (!pool->items) {
+    mk_media_pool_free(pool);
+  }
+
+  return pool->pool.valid;
 }
 
 void mk_media_pool_free(MKMediaPool *pool) {
-  mk_pool_discard(&pool->pool);
-  maker_free(pool->items);
+  mk_discard_pool(&pool->pool);
+  if (pool->items) {
+    maker_free(pool->items);
+  }
 }
 
 MKMediaHandle mk_media_alloc(MKMediaPool *pool) {
   MAKER_ASSERT(&(pool->pool) && pool->pool.valid);
 
-  uint32_t slot_index = mk_pool_item_alloc_index(&pool->pool);
+  MKPoolSlotIndex slot_index = mk_alloc_pool_item_index(&pool->pool);
   MKMediaHandle handle = {.id = 0};
-  if (slot_index != 0) {
-    handle.id = mk_pool_item_alloc(
-        &pool->pool, &pool->items[slot_index].slot, slot_index
-    );
+
+  if (slot_index.index != 0) {
+    MKMediaPoolItem *item = &pool->items[slot_index.index];
+    handle.id = mk_alloc_pool_item(&pool->pool, &item->slot, slot_index);
   }
 
   return handle;
@@ -68,10 +76,9 @@ MKMediaHandle mk_media_alloc(MKMediaPool *pool) {
 void mk_media_init(MKMediaPool *pool, MKMediaHandle handle, char *filename) {
   MAKER_ASSERT(&(pool->pool) && pool->pool.valid);
 
-  uint32_t slot_index = mk_pool_slot_index(handle.id);
+  MKPoolSlotIndex slot_index = mk_pool_slot_index(handle.id);
 
-  printf("slot_index %d %d", slot_index, pool->pool.size);
-  MAKER_ASSERT((slot_index > 0) && (slot_index < pool->pool.size));
+  MAKER_ASSERT((slot_index.index > 0) && (slot_index.index < pool->pool.size));
 
   MKMediaPoolItem *item = _mk_media_lookup(pool, handle.id);
   if (item) {
@@ -91,8 +98,8 @@ MKMediaHandle mk_media_create(MKMediaPool *pool, char *filename) {
 void mk_media_uninit(MKMediaPool *pool, MKMediaHandle handle) {
   MAKER_ASSERT(&(pool->pool) && pool->pool.valid);
 
-  uint32_t slot_index = mk_pool_slot_index(handle.id);
-  MAKER_ASSERT((slot_index >= 0) && (slot_index < pool->pool.size));
+  MKPoolSlotIndex slot_index = mk_pool_slot_index(handle.id);
+  MAKER_ASSERT((slot_index.index >= 0) && (slot_index.index < pool->pool.size));
 
   MKMediaPoolItem *item = _mk_media_lookup(pool, handle.id);
   if (item) {
@@ -106,5 +113,5 @@ void mk_media_uninit(MKMediaPool *pool, MKMediaHandle handle) {
 }
 
 void mk_media_free(MKMediaPool *pool, MKMediaHandle handle) {
-  mk_pool_item_free(&pool->pool, handle.id);
+  mk_free_pool_item(&pool->pool, handle.id);
 }

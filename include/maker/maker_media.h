@@ -15,21 +15,21 @@ typedef struct MKMedia {
   } video;
 } MKMedia;
 
+typedef struct MKMediaHandle {
+  MKPoolSlotId id;
+} MKMediaHandle;
+
 typedef struct MKMediaPoolItem {
   MKPoolSlot slot;
   MKMedia media;
 } MKMediaPoolItem;
-
-typedef struct MKMediaHandle {
-  uint32_t id;
-} MKMediaHandle;
 
 typedef struct MKMediaPool {
   MKPool pool;
   MKMediaPoolItem *items;
 } MKMediaPool;
 
-extern void mk_media_pool_init(MKMediaPool *pool, size_t item_count);
+extern bool mk_media_pool_init(MKMediaPool *pool, size_t item_count);
 
 extern void mk_media_pool_free(MKMediaPool *pool);
 

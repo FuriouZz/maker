@@ -1,4 +1,5 @@
 #include "maker_pool_c.h"
+#include <maker/maker_pool.h>
 
 #include <maker/maker_util.h>
 
@@ -7,11 +8,11 @@
 const int _MK_POOL_SLOT_SHIFT = 16;
 const int _MK_POOL_SLOT_MASK = ((1 << _MK_POOL_SLOT_SHIFT) - 1);
 
-uint32_t mk_pool_slot_index(uint32_t slot_id) {
-  return slot_id & _MK_POOL_SLOT_MASK;
+MKPoolSlotIndex mk_pool_slot_index(MKPoolSlotId slot_id) {
+  return (MKPoolSlotIndex){.index = slot_id.id & _MK_POOL_SLOT_MASK};
 }
 
-void mk_pool_discard(MKPool *pool) {
+void mk_discard_pool(MKPool *pool) {
   if (pool->gen_ctrs) {
     maker_free(pool->gen_ctrs);
   }
@@ -23,18 +24,21 @@ void mk_pool_discard(MKPool *pool) {
   pool->valid = false;
 }
 
-bool mk_pool_init(MKPool *pool, uint32_t num_items) {
+bool mk_init_pool(MKPool *pool, uint32_t num_items) {
+  MAKER_ASSERT(pool && (num_items > 0) && (num_items < ((1 << 16) - 1)));
+
   // /* NOTE: item slot 0 is reserved for the special "invalid" item index 0*/
   pool->size = num_items + 1;
   pool->free_top = 0;
 
   /* generation counters indexable by pool slot index, slot 0 is reserved */
   const size_t gen_ctrs_size = pool->size * sizeof(uint32_t);
-  pool->gen_ctrs = maker_malloc_clear(gen_ctrs_size);
+  pool->gen_ctrs = (uint32_t *)maker_malloc_clear(gen_ctrs_size);
+  MAKER_ASSERT(pool->gen_ctrs);
 
   /* NOTE: it's not a bug to only reserve num_items here */
   const size_t free_slots_size = num_items * sizeof(uint32_t);
-  pool->free_slots = maker_malloc_clear(free_slots_size);
+  pool->free_slots = (uint32_t *)maker_malloc_clear(free_slots_size);
 
   if (pool->free_slots) {
     /* never allocate the 0-th item, this is the reserved 'invalid item' */
@@ -43,45 +47,46 @@ bool mk_pool_init(MKPool *pool, uint32_t num_items) {
     }
     pool->valid = true;
   } else {
-    mk_pool_discard(pool);
+    mk_discard_pool(pool);
   }
 
   return pool->valid;
 }
 
-uint32_t mk_pool_item_alloc_index(MKPool *pool) {
+MKPoolSlotIndex mk_alloc_pool_item_index(MKPool *pool) {
   MAKER_ASSERT(pool);
   MAKER_ASSERT(pool->free_slots);
 
+  MKPoolSlotIndex slot_index = {.index = 0};
+
   if (pool->free_top > 0) {
-    uint32_t slot_index = pool->free_slots[--pool->free_top];
-    MAKER_ASSERT((slot_index >= 0) && (slot_index < pool->size));
-    return slot_index;
+    uint32_t index = pool->free_slots[--pool->free_top];
+    MAKER_ASSERT((index >= 0) && (index < pool->size));
+    slot_index.index = index;
   }
 
-  return 0;
+  return slot_index;
 }
 
-uint32_t
-mk_pool_item_alloc(MKPool *pool, MKPoolSlot *slot, uint32_t slot_index) {
-  MAKER_ASSERT(pool && pool->gen_ctrs);
-  MAKER_ASSERT((slot_index >= 0) && (slot_index < pool->size));
-  MAKER_ASSERT(slot->id == 0);
-  MAKER_ASSERT(slot->state == MK_POOL_ITEM_STATE_INITIAL);
+MKPoolSlotId
+mk_alloc_pool_item(MKPool *pool, MKPoolSlot *slot, MKPoolSlotIndex slot_index) {
+  MAKER_ASSERT(pool && pool->valid);
+  MAKER_ASSERT(pool->free_slots);
+  MAKER_ASSERT((slot_index.index > 0) && (slot_index.index < pool->size));
 
-  uint32_t ctr = ++pool->gen_ctrs[slot_index];
-  slot->id = (ctr << _MK_POOL_SLOT_SHIFT) | (slot_index & 0xFFFF);
+  uint32_t ctr = ++pool->gen_ctrs[slot_index.index];
+  slot->id.id = (ctr << _MK_POOL_SLOT_SHIFT) | (slot_index.index & 0xFFFF);
   slot->state = MK_POOL_ITEM_STATE_ALLOC;
 
   return slot->id;
 }
 
-void mk_pool_item_free(MKPool *pool, uint32_t slot_id) {
+void mk_free_pool_item(MKPool *pool, MKPoolSlotId slot_id) {
   MAKER_ASSERT(pool && pool->valid);
 
-  uint32_t slot_index = mk_pool_slot_index(slot_id);
-  MAKER_ASSERT((slot_index >= 0) && (slot_index < pool->size));
+  MKPoolSlotIndex slot_index = mk_pool_slot_index(slot_id);
+  MAKER_ASSERT((slot_index.index >= 0) && (slot_index.index < pool->size));
 
-  pool->free_slots[pool->free_top++] = slot_index;
+  pool->free_slots[pool->free_top++] = slot_index.index;
   MAKER_ASSERT(pool->free_top <= (pool->size - 1));
 }

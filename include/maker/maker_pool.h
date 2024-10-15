@@ -4,6 +4,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef struct MKPoolSlotId {
+  uint32_t id;
+} MKPoolSlotId;
+
+typedef struct MKPoolSlotIndex {
+  uint32_t index;
+} MKPoolSlotIndex;
+
 typedef enum MKPoolItemState {
   MK_POOL_ITEM_STATE_INITIAL,
   MK_POOL_ITEM_STATE_ALLOC,
@@ -14,7 +22,7 @@ typedef enum MKPoolItemState {
 } MKPoolItemState;
 
 typedef struct MKPoolSlot {
-  uint32_t id;
+  MKPoolSlotId id;
   MKPoolItemState state;
 } MKPoolSlot;
 
