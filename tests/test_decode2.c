@@ -8,6 +8,8 @@ int main(int argc, char *argv[]) {
   (void)argc;
   (void)argv;
 
+  mk_player_setup(&(MKPlayerDesc){.logger.func = slog_func});
+
   MKPlayer *player = mk_player_alloc();
   mk_media_pool_init(&player->media_pool, 1);
   mk_media_create(&player->media_pool, "./tests/video.mp4");

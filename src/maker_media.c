@@ -40,7 +40,7 @@ MKMedia mk_media_open(char *filename) {
 
 bool mk_media_pool_init(MKMediaPool *pool, size_t item_count) {
   // MAKER_ASSERT(0 == pool->items);
-  if (!mk_init_pool(&pool->pool, item_count)) {
+  if (!mk_pool_init(&pool->pool, item_count)) {
     return false;
   }
 
@@ -53,7 +53,7 @@ bool mk_media_pool_init(MKMediaPool *pool, size_t item_count) {
 }
 
 void mk_media_pool_free(MKMediaPool *pool) {
-  mk_discard_pool(&pool->pool);
+  mk_pool_discard(&pool->pool);
   if (pool->items) {
     maker_free(pool->items);
   }
@@ -62,12 +62,12 @@ void mk_media_pool_free(MKMediaPool *pool) {
 MKMediaHandle mk_media_alloc(MKMediaPool *pool) {
   MAKER_ASSERT(&(pool->pool) && pool->pool.valid);
 
-  MKPoolSlotIndex slot_index = mk_alloc_pool_item_index(&pool->pool);
+  MKPoolSlotIndex slot_index = mk_pool_alloc_item_index(&pool->pool);
   MKMediaHandle handle = {.id = 0};
 
   if (slot_index.index != 0) {
     MKMediaPoolItem *item = &pool->items[slot_index.index];
-    handle.id = mk_alloc_pool_item(&pool->pool, &item->slot, slot_index);
+    handle.id = mk_pool_alloc_item(&pool->pool, &item->slot, slot_index);
   }
 
   return handle;
@@ -113,5 +113,5 @@ void mk_media_uninit(MKMediaPool *pool, MKMediaHandle handle) {
 }
 
 void mk_media_free(MKMediaPool *pool, MKMediaHandle handle) {
-  mk_free_pool_item(&pool->pool, handle.id);
+  mk_pool_free_item(&pool->pool, handle.id);
 }

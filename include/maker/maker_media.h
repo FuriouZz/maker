@@ -1,12 +1,15 @@
 #ifndef MAKER_MEDIA_H
 #define MAKER_MEDIA_H
 
+#include "libavformat/avformat.h"
 #include <maker/maker_pool.h>
 #include <stdbool.h>
 #include <stddef.h>
 
 typedef struct MKMedia {
   char *filename;
+  AVFormatContext *format_context;
+  bool is_opened;
   struct {
     bool has_stream;
     int stream_index;

@@ -12,7 +12,7 @@ MKPoolSlotIndex mk_pool_slot_index(MKPoolSlotId slot_id) {
   return (MKPoolSlotIndex){.index = slot_id.id & _MK_POOL_SLOT_MASK};
 }
 
-void mk_discard_pool(MKPool *pool) {
+void mk_pool_discard(MKPool *pool) {
   if (pool->gen_ctrs) {
     maker_free(pool->gen_ctrs);
   }
@@ -24,7 +24,7 @@ void mk_discard_pool(MKPool *pool) {
   pool->valid = false;
 }
 
-bool mk_init_pool(MKPool *pool, uint32_t num_items) {
+bool mk_pool_init(MKPool *pool, uint32_t num_items) {
   MAKER_ASSERT(pool && (num_items > 0) && (num_items < ((1 << 16) - 1)));
 
   // /* NOTE: item slot 0 is reserved for the special "invalid" item index 0*/
@@ -47,13 +47,13 @@ bool mk_init_pool(MKPool *pool, uint32_t num_items) {
     }
     pool->valid = true;
   } else {
-    mk_discard_pool(pool);
+    mk_pool_discard(pool);
   }
 
   return pool->valid;
 }
 
-MKPoolSlotIndex mk_alloc_pool_item_index(MKPool *pool) {
+MKPoolSlotIndex mk_pool_alloc_item_index(MKPool *pool) {
   MAKER_ASSERT(pool);
   MAKER_ASSERT(pool->free_slots);
 
@@ -69,7 +69,7 @@ MKPoolSlotIndex mk_alloc_pool_item_index(MKPool *pool) {
 }
 
 MKPoolSlotId
-mk_alloc_pool_item(MKPool *pool, MKPoolSlot *slot, MKPoolSlotIndex slot_index) {
+mk_pool_alloc_item(MKPool *pool, MKPoolSlot *slot, MKPoolSlotIndex slot_index) {
   MAKER_ASSERT(pool && pool->valid);
   MAKER_ASSERT(pool->free_slots);
   MAKER_ASSERT((slot_index.index > 0) && (slot_index.index < pool->size));
@@ -81,7 +81,7 @@ mk_alloc_pool_item(MKPool *pool, MKPoolSlot *slot, MKPoolSlotIndex slot_index) {
   return slot->id;
 }
 
-void mk_free_pool_item(MKPool *pool, MKPoolSlotId slot_id) {
+void mk_pool_free_item(MKPool *pool, MKPoolSlotId slot_id) {
   MAKER_ASSERT(pool && pool->valid);
 
   MKPoolSlotIndex slot_index = mk_pool_slot_index(slot_id);
