@@ -1,4 +1,5 @@
-#include <maker/maker_play.h>
+#include "maker/maker_media.h"
+#include <maker/maker_player.h>
 #include <sokol_log.h>
 
 #define MAKER_PLAY_EXT_IMPL
@@ -8,14 +9,19 @@
 int main(int argc, char *argv[]) {
   (void)argc;
   (void)argv;
-  mk_play_setup(&(mk_play_desc){.logger.func = slog_func});
 
-  const mk_play_media media = mk_play_alloc_media("./tests/video.mp4");
-  const mk_play_decode_context context =
-      mk_play_alloc_decode_context(&media, MK_PLAY_PXFMT_RGB);
-  mk_play_decode(&context, &media);
-  mk_play_save_pgm(&context, "./tmp/output.pgm");
-  mk_play_save_ppm(&context, "./tmp/output.ppm");
+  MKMediaPool pool = {0};
+  MKPlayer player = {0};
+
+  mk_media_pool_init(&pool, 1);
+  MKMediaHandle handle = mk_media_create(&pool, "./tests/video.mp4");
+  MKMedia *media = mk_media_get(&pool, &handle);
+
+  mk_player_open_media(&player, media);
+  mk_player_decode_one(&player);
+
+  save_pgm(&player, "./tmp/output.pgm");
+  save_ppm(&player, "./tmp/output.ppm");
 
   return 0;
 }

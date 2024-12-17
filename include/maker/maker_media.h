@@ -1,18 +1,13 @@
 #ifndef MAKER_MEDIA_H
 #define MAKER_MEDIA_H
 
-#include "libavformat/avformat.h"
 #include <maker/maker_pool.h>
 #include <stdbool.h>
 #include <stddef.h>
 
 typedef struct MKMedia {
-  char *filename;
-  AVFormatContext *format_context;
-  bool is_opened;
+  const char *filename;
   struct {
-    bool has_stream;
-    int stream_index;
     int width;
     int height;
   } video;
@@ -39,11 +34,13 @@ extern void mk_media_pool_free(MKMediaPool *pool);
 extern MKMediaHandle mk_media_alloc(MKMediaPool *pool);
 
 extern void
-mk_media_init(MKMediaPool *pool, MKMediaHandle handle, char *filename);
+mk_media_init(MKMediaPool *pool, MKMediaHandle handle, const char *filename);
 
-extern MKMediaHandle mk_media_create(MKMediaPool *pool, char *filename);
+extern MKMediaHandle mk_media_create(MKMediaPool *pool, const char *filename);
 
-extern void mk_media_uninit(MKMediaPool *pool, MKMediaHandle handle);
+extern MKMedia *mk_media_get(MKMediaPool *pool, MKMediaHandle *handle);
 
-extern void mk_media_free(MKMediaPool *pool, MKMediaHandle handle);
+extern void mk_media_uninit(MKMediaPool *pool, MKMediaHandle *handle);
+
+extern void mk_media_free(MKMediaPool *pool, MKMediaHandle *handle);
 #endif

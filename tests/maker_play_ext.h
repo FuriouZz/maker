@@ -1,13 +1,12 @@
 #ifndef MAKER_PLAY_EXT_H
 #define MAKER_PLAY_EXT_H
 
+#include "maker/maker_player.h"
 #include <maker/maker_play.h>
 
-extern void
-mk_play_save_pgm(const mk_play_decode_context *context, char *output);
+extern void save_pgm(MKPlayer *player, char *output);
 
-extern void
-mk_play_save_ppm(const mk_play_decode_context *context, char *output);
+extern void save_ppm(MKPlayer *player, char *output);
 
 #endif
 
@@ -15,7 +14,7 @@ mk_play_save_ppm(const mk_play_decode_context *context, char *output);
 
 #include <libavutil/imgutils.h>
 
-static void _mk_play_save_gray_frame(
+static void _save_gray_frame(
     unsigned char *buf, int wrap, int xsize, int ysize, char *filename
 ) {
   FILE *f;
@@ -28,7 +27,7 @@ static void _mk_play_save_gray_frame(
   fclose(f);
 }
 
-static void _mk_play_save_rgb_frame(
+static void _save_rgb_frame(
     unsigned char *buf, int wrap, int xsize, int ysize, char *filename
 ) {
   FILE *f;
@@ -41,34 +40,41 @@ static void _mk_play_save_rgb_frame(
   fclose(f);
 }
 
-void mk_play_save_pgm(const mk_play_decode_context *context, char *output) {
-  AVFrame *src_frame = context->frame;
-  _mk_play_save_gray_frame(
-      src_frame->data[0], src_frame->linesize[0], context->codec_context->width,
-      context->codec_context->height, output
+void save_pgm(MKPlayer *player, char *output) {
+  AVFrame *src_frame = player->decoder.yuv_frame;
+  _save_gray_frame(
+      src_frame->data[0], src_frame->linesize[0], player->video.width,
+      player->video.height, output
   );
 }
 
-void mk_play_save_ppm(const mk_play_decode_context *context, char *output) {
-  AVFrame *src_frame = context->frame;
-  struct SwsContext *sws_context = context->sws_context;
+void save_ppm(MKPlayer *player, char *output) {
+  AVFrame *src_frame = player->decoder.yuv_frame;
+  const int format = AV_PIX_FMT_RGB24;
+  AVCodecContext *codec_context = player->video.codec;
+  struct SwsContext *sws_context = sws_getContext(
+      codec_context->width, codec_context->height, codec_context->pix_fmt,
+      codec_context->width, codec_context->height, format, SWS_BILINEAR, NULL,
+      NULL, NULL
+  );
   AVFrame *dst_frame = av_frame_alloc();
 
   av_image_alloc(
-      dst_frame->data, dst_frame->linesize, context->codec_context->width,
-      context->codec_context->height, context->pixel_format, 1
+      dst_frame->data, dst_frame->linesize, player->video.width,
+      player->video.height, format, 1
   );
 
   sws_scale(
       sws_context, (const uint8_t *const *)src_frame->data, src_frame->linesize,
-      0, context->codec_context->height, dst_frame->data, dst_frame->linesize
+      0, player->video.height, dst_frame->data, dst_frame->linesize
   );
 
-  _mk_play_save_rgb_frame(
-      dst_frame->data[0], dst_frame->linesize[0], context->codec_context->width,
-      context->codec_context->height, output
+  _save_rgb_frame(
+      dst_frame->data[0], dst_frame->linesize[0], player->video.width,
+      player->video.height, output
   );
 
   av_frame_free(&dst_frame);
+  sws_freeContext(sws_context);
 }
 #endif

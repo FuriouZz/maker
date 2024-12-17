@@ -1,5 +1,4 @@
 #include "maker_pool_c.h"
-#include <maker/maker_pool.h>
 
 #include <maker/maker_util.h>
 

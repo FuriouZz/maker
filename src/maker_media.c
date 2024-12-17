@@ -26,18 +26,6 @@ _mk_media_lookup(MKMediaPool *pool, MKPoolSlotId slot_id) {
   return NULL;
 }
 
-MKMedia mk_media_open(char *filename) {
-  MKMedia media =
-      {.filename = strdup(filename),
-       .video = {
-           .has_stream = false,
-           .stream_index = -1,
-           .width = -1,
-           .height = -1,
-       }};
-  return media;
-}
-
 bool mk_media_pool_init(MKMediaPool *pool, size_t item_count) {
   // MAKER_ASSERT(0 == pool->items);
   if (!mk_pool_init(&pool->pool, item_count)) {
@@ -73,7 +61,9 @@ MKMediaHandle mk_media_alloc(MKMediaPool *pool) {
   return handle;
 }
 
-void mk_media_init(MKMediaPool *pool, MKMediaHandle handle, char *filename) {
+void mk_media_init(
+    MKMediaPool *pool, MKMediaHandle handle, const char *filename
+) {
   MAKER_ASSERT(&(pool->pool) && pool->pool.valid);
 
   MKPoolSlotIndex slot_index = mk_pool_slot_index(handle.id);
@@ -83,25 +73,25 @@ void mk_media_init(MKMediaPool *pool, MKMediaHandle handle, char *filename) {
   MKMediaPoolItem *item = _mk_media_lookup(pool, handle.id);
   if (item) {
     if (item->slot.state == MK_POOL_ITEM_STATE_ALLOC) {
-      item->media = (MKMedia){.filename = strdup(filename)};
+      item->media = (MKMedia){.filename = filename};
       item->slot.state = MK_POOL_ITEM_STATE_VALID;
     }
   }
 }
 
-MKMediaHandle mk_media_create(MKMediaPool *pool, char *filename) {
+MKMediaHandle mk_media_create(MKMediaPool *pool, const char *filename) {
   MKMediaHandle handle = mk_media_alloc(pool);
   mk_media_init(pool, handle, filename);
   return handle;
 }
 
-void mk_media_uninit(MKMediaPool *pool, MKMediaHandle handle) {
+void mk_media_uninit(MKMediaPool *pool, MKMediaHandle *handle) {
   MAKER_ASSERT(&(pool->pool) && pool->pool.valid);
 
-  MKPoolSlotIndex slot_index = mk_pool_slot_index(handle.id);
+  MKPoolSlotIndex slot_index = mk_pool_slot_index(handle->id);
   MAKER_ASSERT((slot_index.index >= 0) && (slot_index.index < pool->pool.size));
 
-  MKMediaPoolItem *item = _mk_media_lookup(pool, handle.id);
+  MKMediaPoolItem *item = _mk_media_lookup(pool, handle->id);
   if (item) {
     if (item->slot.state == MK_POOL_ITEM_STATE_VALID ||
         item->slot.state == MK_POOL_ITEM_STATE_FAILED) {
@@ -112,6 +102,14 @@ void mk_media_uninit(MKMediaPool *pool, MKMediaHandle handle) {
   }
 }
 
-void mk_media_free(MKMediaPool *pool, MKMediaHandle handle) {
-  mk_pool_free_item(&pool->pool, handle.id);
+MKMedia *mk_media_get(MKMediaPool *pool, MKMediaHandle *handle) {
+  MKMediaPoolItem *item = _mk_media_lookup(pool, handle->id);
+  if (item) {
+    return &item->media;
+  }
+  return NULL;
+}
+
+void mk_media_free(MKMediaPool *pool, MKMediaHandle *handle) {
+  mk_pool_free_item(&pool->pool, handle->id);
 }

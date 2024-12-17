@@ -39,4 +39,6 @@ extern void mk_cond_signal(MKCond *cond);
 extern void mk_cond_broadcast(MKCond *cond);
 
 extern void mk_cond_wait(MKCond *cond, MKMutex *mutex);
+
+extern int mk_cond_timedwait(MKCond *cond, MKMutex *mutex, int seconds);
 #endif

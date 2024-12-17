@@ -2,6 +2,7 @@
 
 #include <pthread.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "maker_internal.h"
 
@@ -87,8 +88,12 @@ void mk_cond_wait(MKCond *cond, MKMutex *mutex) {
   MAKER_ASSERT(pthread_cond_wait(&cond->handle, &mutex->handle) == 0);
 }
 
-void mk_cond_wait_timeout(MKCond *cond, MKMutex *mutex) {
+int mk_cond_timedwait(MKCond *cond, MKMutex *mutex, int seconds) {
   if (!cond || !mutex)
-    return;
-  // MAKER_ASSERT(pthread_cond_timedwait(&cond->handle, &mutex->handle) == 0);
+    return -1;
+  struct timeval now;
+  struct timespec timeout;
+  timeout.tv_sec = now.tv_sec + seconds;
+  timeout.tv_nsec = now.tv_usec * 1000;
+  return pthread_cond_timedwait(&cond->handle, &mutex->handle, &timeout);
 }

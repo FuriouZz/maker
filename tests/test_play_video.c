@@ -3,8 +3,10 @@
 #include <sokol_glue.h>
 #include <sokol_log.h>
 
-#include <maker/maker_play.h>
+#include <maker/maker_media.h>
+#include <maker/maker_player.h>
 #include <maker/shaders/quad.glsl.h>
+#include <stdio.h>
 
 static struct {
   sg_pass_action pass_action;
@@ -12,26 +14,24 @@ static struct {
   sg_bindings bindings;
   const char *filename;
 
-  mk_play_media media;
-  mk_play_decode_context decode_context;
-  mk_play_image_data image_data;
+  MKPlayer player;
+  MKMediaPool media_pool;
+  MKPlayerImageData image_data;
 
   uint64_t time;
 } state;
 
 static void init(void) {
-  mk_play_setup(&(mk_play_desc){.logger.func = slog_func});
+  MKMediaPool *pool = &state.media_pool;
+  MKPlayer *player = &state.player;
+  MKPlayerImageData *data = &state.image_data;
 
-  const mk_play_media media = mk_play_alloc_media(state.filename);
-  const mk_play_decode_context context =
-      mk_play_alloc_decode_context(&media, MK_PLAY_PXFMT_RGBA);
-  const mk_play_image_data data = mk_play_alloc_image_data(
-      media.video.width, media.video.height, MK_PLAY_PXFMT_RGBA
-  );
+  mk_media_pool_init(pool, 1);
+  mk_media_create(pool, state.filename);
+  MKMedia *media = &pool->items[1].media;
 
-  state.media = media;
-  state.decode_context = context;
-  state.image_data = data;
+  mk_player_open_media(player, media);
+  mk_player_create_image_data(player, data);
 
   sg_setup(&(sg_desc){
       .environment = sglue_environment(),
@@ -50,8 +50,8 @@ static void init(void) {
   sg_init_image(
       state.bindings.fs.images[SLOT_tex],
       &(sg_image_desc){
-          .width = data.width,
-          .height = data.height,
+          .width = data->width,
+          .height = data->height,
           .pixel_format = SG_PIXELFORMAT_RGBA8,
           .usage = SG_USAGE_STREAM,
       }
@@ -104,17 +104,15 @@ static void frame(void) {
     state.time = 0;
   }
 
-  if (mk_play_seek(&state.decode_context, &state.media, state.time) == 0) {
-    mk_play_get_pixels(&state.decode_context, &state.image_data);
-
-    sg_update_image(
-        state.bindings.fs.images[SLOT_tex],
-        &(sg_image_data
-        ){.subimage[0][0] =
-              {.ptr = state.image_data.buffer,
-               .size = state.image_data.buffer_size}}
-    );
-  }
+  mk_player_decode_one(&state.player);
+  mk_player_get_pixel(&state.player, &state.image_data);
+  sg_update_image(
+      state.bindings.fs.images[SLOT_tex],
+      &(sg_image_data
+      ){.subimage[0][0] =
+            {.ptr = state.image_data.buffer,
+             .size = state.image_data.buffer_size}}
+  );
 
   sg_begin_pass(&(sg_pass
   ){.action = state.pass_action, .swapchain = sglue_swapchain()});

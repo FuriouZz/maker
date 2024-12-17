@@ -34,8 +34,7 @@ endmacro()
 
 add_maker_test_executable(test_hello USE_SOKOL_APP LIBRARIES sokol microui SOURCES test_hello.c)
 add_maker_test_executable(test_decode LIBRARIES sokol SOURCES test_decode.c)
-add_maker_test_executable(test_decode2 LIBRARIES sokol SOURCES test_decode2.c)
-add_maker_test_executable(test_decode_video USE_SOKOL_APP LIBRARIES sokol SOURCES test_decode_video.c)
+add_maker_test_executable(test_play_video USE_SOKOL_APP LIBRARIES sokol SOURCES test_play_video.c)
 add_maker_test_executable(test_thread SOURCES test_thread.c)
 
 function(add_maker_test TEST TARGET)

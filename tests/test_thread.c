@@ -9,6 +9,7 @@ struct {
 } state;
 
 static int thread_a(void *data) {
+  (void)data;
   puts("hello");
   sleep(2);
   puts("world");
