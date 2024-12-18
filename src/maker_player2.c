@@ -1,4 +1,4 @@
-#include <maker/maker_player_ffplay.h>
+#include <maker/maker_player2.h>
 
 #include <libavcodec/codec_par.h>
 #include <libavformat/avformat.h>

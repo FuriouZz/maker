@@ -1,8 +1,7 @@
 #ifndef MAKER_PLAY_EXT_H
 #define MAKER_PLAY_EXT_H
 
-#include "maker/maker_player.h"
-#include <maker/maker_play.h>
+#include <maker/maker_player.h>
 
 extern void save_pgm(MKPlayer *player, char *output);
 
