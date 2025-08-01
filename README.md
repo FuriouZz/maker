@@ -22,3 +22,4 @@ For now, I do not have any energy anymore to continue to work alone on this proj
 - [ffmpeg-video-player](https://github.com/rambodrahmani/ffmpeg-video-player) by [@rambodrahmani](https://github.com/rambodrahmani)
 - [FFMS2](https://github.com/FFMS/ffms2)
 - [Shotcut](https://github.com/mltframework/shotcut)
+- [libavg](https://github.com/libavg/libavg)
