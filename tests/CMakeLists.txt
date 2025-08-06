@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 4.0)
 
 set(MAKER_TEST_EXECUTABLES)
 
@@ -32,10 +32,13 @@ macro(add_maker_test_executable TARGET)
   endif()
 endmacro()
 
-add_maker_test_executable(test_hello USE_SOKOL_APP LIBRARIES sokol microui SOURCES test_hello.c)
-add_maker_test_executable(test_decode LIBRARIES sokol SOURCES test_decode.c)
-add_maker_test_executable(test_decode2 LIBRARIES sokol SOURCES test_decode2.c)
-add_maker_test_executable(test_decode_video USE_SOKOL_APP LIBRARIES sokol SOURCES test_decode_video.c)
+
+add_maker_test_executable(test_media SOURCES test_media.c)
+add_maker_test_executable(test_decode SOURCES test_decode.c)
+# add_maker_test_executable(test_hello USE_SOKOL_APP LIBRARIES sokol microui SOURCES test_hello.c)
+# add_maker_test_executable(test_decode LIBRARIES sokol SOURCES test_decode.c)
+# add_maker_test_executable(test_decode2 LIBRARIES sokol SOURCES test_decode2.c)
+# add_maker_test_executable(test_decode_video USE_SOKOL_APP LIBRARIES sokol SOURCES test_decode_video.c)
 add_maker_test_executable(test_thread SOURCES test_thread.c)
 
 function(add_maker_test TEST TARGET)
@@ -49,62 +52,3 @@ endfunction()
 foreach(TARGET ${MAKER_TEST_EXECUTABLES})
   add_maker_test(${TARGET} ${TARGET})
 endforeach()
-
-# #=== LIBRARY: test
-# add_library(test INTERFACE)
-# target_include_directories(test INTERFACE "${PROJECT_SOURCE_DIR}/src")
-
-# #=== TEST: hello world
-# add_executable(test_hello "hello.c")
-# target_link_libraries(test_hello
-#   test
-#   sokol
-#   microui
-#   ffmpeg
-# )
-# target_compile_definitions(test_hello PUBLIC 
-#   USE_SOKOL_LOG 
-#   USE_SOKOL_GFX 
-#   USE_SOKOL_APP 
-#   USE_SOKOL_GLUE
-# )
-# add_test(NAME hello COMMAND test_hello)
-
-# #=== TEST: decode
-# add_executable(test_decode 
-#   "decode.c" "${MAKERLIB_SOURCES}" "maker_play_ext.h"
-# )
-# target_link_libraries(test_decode test sokol microui ffmpeg)
-# target_compile_definitions(test_decode PUBLIC USE_SOKOL_LOG)
-# add_test(
-#   NAME test_decode
-#   COMMAND decode
-#   "${CMAKE_SOURCE_DIR}/tests/video.mp4"
-#   "${CMAKE_SOURCE_DIR}/tmp/output.pgm"
-#   "${CMAKE_SOURCE_DIR}/tmp/output.ppm"
-# )
-
-# #=== TEST: decode_video
-# add_executable(test_decode_video 
-#   "decode_video.c" "${MAKERLIB_SOURCES}" "maker_play_ext.h"
-# )
-# target_link_libraries(test_decode_video test sokol microui ffmpeg)
-# target_compile_definitions(test_decode_video PUBLIC
-#   USE_SOKOL_LOG
-#   USE_SOKOL_GFX
-#   USE_SOKOL_APP
-#   USE_SOKOL_GLUE
-# )
-# add_test(
-#   NAME test_decode_video 
-#   COMMAND decode_video 
-#   "${CMAKE_SOURCE_DIR}/tests/video.mp4"
-# )
-
-# #=== TEST: thread
-# add_executable(test_thread 
-#   "thread.c" "${MAKERLIB_SOURCES}" "maker_play_ext.h"
-# )
-# target_link_libraries(test_thread test ffmpeg)
-# add_test(NAME thread COMMAND test_thread)
-

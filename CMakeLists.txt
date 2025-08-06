@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 4.0)
 
 project(
   maker-editor VERSION 1.0
@@ -18,13 +18,12 @@ include(CMakeParseArguments)
 
 #=== USER_MODULES: microui sokol ffmpeg
 include(requirements)
-include(microui)
-include(sokol)
 include(ffmpeg)
 include(makerlib)
 
 #=== EXECUTABLE: maker
 if(MAKER_APP)
+include(sokol)
 add_executable(maker src/main.c)
 target_link_libraries(maker makerlib sokol)
 target_compile_definitions(maker PUBLIC USE_SOKOL_APP)

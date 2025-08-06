@@ -38,7 +38,7 @@ function install:tools {
 
 function build {
   : "Build"
- _shdc quad &&\
+ # _shdc quad &&\
  _cmake_generate -DMAKER_APP=ON -DMAKER_TESTS=OFF &&\
  _cmake_build $@
 }
