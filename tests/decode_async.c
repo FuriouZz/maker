@@ -21,7 +21,7 @@ int main(void)
 
     MKTrack video_track = { 0 };
     ret = mk_media_get_track_from_type(
-        &video_track, &media, MKTRACK_TYPE_VIDEO
+        &video_track, &media, MK_TRACK_TYPE_VIDEO
     );
     MK_ASSERT(ret == 0);
 

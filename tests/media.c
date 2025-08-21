@@ -15,12 +15,12 @@ int main(void)
 
     MKTrack video = { 0 };
     MK_ASSERT(
-        mk_media_get_track_from_type(&video, &media, MKTRACK_TYPE_VIDEO) == 0
+        mk_media_get_track_from_type(&video, &media, MK_TRACK_TYPE_VIDEO) == 0
     );
 
     MKTrack audio = { 0 };
     MK_ASSERT(
-        mk_media_get_track_from_type(&audio, &media, MKTRACK_TYPE_AUDIO) == 0
+        mk_media_get_track_from_type(&audio, &media, MK_TRACK_TYPE_AUDIO) == 0
     );
 
     return 0;

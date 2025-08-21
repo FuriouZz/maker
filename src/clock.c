@@ -5,7 +5,10 @@
 
 int mk_clock_init(MKClock* clock)
 {
-    MK_CHECK_VALID(clock);
+    if (clock == NULL) {
+        return -1;
+    }
+
     clock->start_time = mk_malloc(sizeof(struct timespec));
     return 0;
 }
@@ -20,18 +23,24 @@ void mk_clock_free(MKClock* clock)
 
 int mk_clock_start(MKClock* clock)
 {
-    MK_CHECK_VALID(clock);
+    if (clock == NULL) {
+        return -1;
+    }
 
     int ret;
 
     if (clock->pause_time == NULL) {
         ret = clock_gettime(CLOCK_MONOTONIC, clock->start_time);
-        MK_CHECK_RESULT(ret);
+        if (ret != 0) {
+            return -1;
+        };
     } else {
         MKTime time;
 
         ret = clock_gettime(CLOCK_MONOTONIC, &time);
-        MK_CHECK_RESULT(ret);
+        if (ret != 0) {
+            return -1;
+        };
 
         clock->start_time->tv_sec += time.tv_sec - clock->pause_time->tv_sec;
         clock->start_time->tv_sec
@@ -48,14 +57,18 @@ int mk_clock_start(MKClock* clock)
 
 int mk_clock_pause(MKClock* clock)
 {
-    MK_CHECK_VALID(clock);
+    if (clock == NULL) {
+        return -1;
+    }
 
     int ret;
 
     if (clock->pause_time == NULL) {
         clock->pause_time = mk_malloc(sizeof(struct timespec));
         ret = clock_gettime(CLOCK_MONOTONIC, clock->pause_time);
-        MK_CHECK_RESULT(ret);
+        if (ret != 0) {
+            return -1;
+        };
     }
 
     return 0;
@@ -63,10 +76,14 @@ int mk_clock_pause(MKClock* clock)
 
 int mk_get_time(MKTime* time)
 {
-    MK_CHECK_VALID(time);
+    if (time == NULL) {
+        return -1;
+    }
 
     int ret = clock_gettime(CLOCK_MONOTONIC, time);
-    MK_CHECK_RESULT(ret);
+    if (ret != 0) {
+        return -1;
+    };
 
     return 0;
 }

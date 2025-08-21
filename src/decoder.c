@@ -2,7 +2,6 @@
 #include "frame_queue.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/packet.h"
-#include "libavutil/avutil.h"
 #include "libavutil/error.h"
 #include "mutex.h"
 #include "packet_queue.h"
@@ -30,7 +29,6 @@ int mk_decoder_init(
     decoder->codec_context = codec_context;
     decoder->packet_queue = packet_queue;
     decoder->is_empty_signal = is_empty_signal;
-    decoder->start_pts = AV_NOPTS_VALUE;
 
     return 0;
 }

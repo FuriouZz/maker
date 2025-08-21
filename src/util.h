@@ -29,9 +29,19 @@
         return -1;                                                             \
     }
 
-#define MK_CHECK_RESULT(res)                                                   \
+#define MK_CHECK_GOTO(ptr, label)                                              \
+    if (ptr == NULL) {                                                         \
+        goto label;                                                            \
+    }
+
+#define MK_STATUS_VALID(res)                                                   \
     if (res != 0) {                                                            \
         return -1;                                                             \
+    }
+
+#define MK_STATUS_GOTO(res, label)                                             \
+    if (res != 0) {                                                            \
+        goto label;                                                            \
     }
 
 #include <stddef.h>

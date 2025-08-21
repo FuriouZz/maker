@@ -114,7 +114,7 @@ int mk_media_decoder_init(MKMediaDecoder* decoder, MKMedia* media)
     }
 
     MKTrack video_track = { 0 };
-    if (mk_media_get_track_from_type(&video_track, media, MKTRACK_TYPE_VIDEO)
+    if (mk_media_get_track_from_type(&video_track, media, MK_TRACK_TYPE_VIDEO)
         == 0) {
         AVStream* stream
             = media->context->format->streams[video_track.stream_index];
@@ -140,7 +140,7 @@ int mk_media_decoder_init(MKMediaDecoder* decoder, MKMedia* media)
     }
 
     MKTrack audio_track = { 0 };
-    if (mk_media_get_track_from_type(&audio_track, media, MKTRACK_TYPE_AUDIO)
+    if (mk_media_get_track_from_type(&audio_track, media, MK_TRACK_TYPE_AUDIO)
         == 0) {
         AVStream* stream
             = media->context->format->streams[audio_track.stream_index];
@@ -460,7 +460,7 @@ int mk_media_decoder_read_frame(MKMediaDecoder* decoder, MKImageData* target)
 
     MKTrack video_track = { 0 };
     err = mk_media_get_track_from_type(
-        &video_track, decoder->media, MKTRACK_TYPE_VIDEO
+        &video_track, decoder->media, MK_TRACK_TYPE_VIDEO
     );
     if (err != 0) {
         printf("No video track found");

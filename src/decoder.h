@@ -18,8 +18,6 @@ typedef struct MKDecoder {
 
     MKCond* is_empty_signal;
     MKThread thread;
-
-    int64_t start_pts;
 } MKDecoder;
 
 extern int mk_decoder_init(

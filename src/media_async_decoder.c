@@ -11,7 +11,6 @@
 #include "libavutil/frame.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/pixfmt.h"
-#include "libavutil/time.h"
 #include "libswscale/swscale.h"
 #include "maker/maker.h"
 #include "media.h"
@@ -20,7 +19,6 @@
 #include "packet_queue.h"
 #include "thread.h"
 #include "util.h"
-#include <math.h>
 #include <stdint.h>
 
 #define MAX_QUEUE_ITEM 25
@@ -39,16 +37,13 @@ int mk_media_async_decoder_init(
 
     decoder->media = desc->media;
     decoder->converter.target_format = AV_PIX_FMT_RGBA;
-    decoder->max_frame_duration
-        = desc->media->context->format->flags & AVFMT_TS_DISCONT ? 10.0
-                                                                 : 3600.0;
 
     MKDecoder* video_decoder = &decoder->video_decoder;
     MKPacketQueue* packet_queue = &decoder->packet_queue;
     MKFrameQueue* picture_queue = &decoder->picture_queue;
     MKCond* continue_demux_signal = &decoder->continue_demux_signal;
     MKClock* clock = &decoder->clock;
-    int video_stream_index = media->streams[MKTRACK_TYPE_VIDEO];
+    int video_stream_index = media->streams[MK_TRACK_TYPE_VIDEO];
 
     if (mk_packet_queue_init(packet_queue) != 0) {
         printf("Failed to initialize packet queue\n");
@@ -181,7 +176,7 @@ _MK_PRIVATE int mk_media_async_demuxer_thread(void* data)
             decoder->is_eof = 0;
         }
 
-        if (packet->stream_index == media->streams[MKTRACK_TYPE_VIDEO]) {
+        if (packet->stream_index == media->streams[MK_TRACK_TYPE_VIDEO]) {
             printf(
                 "packet - pts=%lld dts=%lld pos=%lld\n", packet->pts,
                 packet->dts, packet->pos
@@ -334,7 +329,7 @@ int mk_media_async_decoder_start(MKMediaAsyncDecoder* decoder)
         return -1;
     }
 
-    if (media->streams[MKTRACK_TYPE_VIDEO] > -1) {
+    if (media->streams[MK_TRACK_TYPE_VIDEO] > -1) {
         MKDecoder* video_decoder = &decoder->video_decoder;
         MKThread* video_thread = &video_decoder->thread;
         video_thread->name = "video_thread";
@@ -368,7 +363,7 @@ void mk_media_async_decoder_stop(MKMediaAsyncDecoder* decoder)
     mk_packet_queue_abort(queue);
     mk_clock_pause(clock);
 
-    if (media->streams[MKTRACK_TYPE_VIDEO] > -1) {
+    if (media->streams[MK_TRACK_TYPE_VIDEO] > -1) {
         MKDecoder* video_decoder = &decoder->video_decoder;
         mk_decoder_abort(video_decoder, picture_queue);
     }
@@ -475,7 +470,7 @@ int mk_media_decoder_get_playback_time(
 
     MKTime time;
     ret = mk_get_time(&time);
-    MK_CHECK_RESULT(ret);
+    MK_STATUS_VALID(ret);
 
     *time_ms = (time.tv_sec - clock->start_time->tv_sec) * 1000
         + (time.tv_nsec - clock->start_time->tv_nsec) / 1000000;
@@ -494,7 +489,7 @@ int mk_media_async_refresh(MKMediaAsyncDecoder* decoder)
 
     int time_spent;
     ret = mk_media_decoder_get_playback_time(decoder, &time_spent);
-    MK_CHECK_RESULT(ret);
+    MK_STATUS_VALID(ret);
 
 retry:
     if (mk_frame_queue_remaining_frame_count(picture_queue) == 0) {

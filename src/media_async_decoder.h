@@ -23,13 +23,10 @@ typedef struct MKMediaConverter {
 
 typedef struct MKMediaAsyncDecoder {
     MKMedia* media;
-    int frame_rate;
 
     MKPacketQueue packet_queue;
     int is_aborted;
     int is_eof;
-    double max_frame_duration; // maximum duration of a frame - above this, we
-                               // consider the jump a timestamp discontinuity
 
     MKClock clock;
 

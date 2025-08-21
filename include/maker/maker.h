@@ -31,10 +31,10 @@ typedef struct MKImageData {
 } MKImageData;
 
 typedef enum MKTrackType {
-    MKTRACK_TYPE_UNKNOWN = -1,
-    MKTRACK_TYPE_VIDEO,
-    MKTRACK_TYPE_AUDIO,
-    MKTRACK_TYPE_COUNT
+    MK_TRACK_TYPE_UNKNOWN = -1,
+    MK_TRACK_TYPE_VIDEO,
+    MK_TRACK_TYPE_AUDIO,
+    MK_TRACK_TYPE_COUNT
 } MKTrackType;
 
 typedef struct MKTrack {
@@ -50,12 +50,18 @@ typedef struct MKMediaContext MKMediaContext;
 typedef struct MKMedia {
     const char* filename;
     MKMediaContext* context;
-    int streams[MKTRACK_TYPE_COUNT];
+    int streams[MK_TRACK_TYPE_COUNT];
 } MKMedia;
 
 typedef struct MKMediaDesc {
     char* filename;
 } MKMediaDesc;
+
+typedef struct MKContextDesc {
+    MKMedia* media;
+} MKContextDesc;
+
+typedef struct MKContext MKContext;
 
 extern int mk_media_init(MKMedia* media, MKMediaDesc* desc);
 extern void mk_media_destroy(MKMedia* media);
@@ -66,8 +72,14 @@ mk_media_get_track_from_type(MKTrack* track, MKMedia* media, MKTrackType type);
 
 extern int mk_image_data_init(MKImageData* data, MKImageDataDesc* desc);
 extern void mk_image_data_destroy(MKImageData* data);
-
 extern void mk_image_data_save_pgm(MKImageData* target, char* output);
 extern void mk_image_data_save_ppm(MKImageData* target, char* output);
+
+extern int mk_context_create(MKContext* context, MKContextDesc* desc);
+extern int mk_context_destroy(MKContext* context);
+extern int mk_context_start_playback(MKContext* context);
+extern int mk_context_pause_playback(MKContext* context);
+extern int mk_context_get_playback_time(MKContext* context, int* time_ms);
+extern int mk_context_get_video_frame(MKContext* context, MKImageData* target);
 
 #endif

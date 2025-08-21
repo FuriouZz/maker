@@ -37,11 +37,11 @@ int mk_media_init(MKMedia* media, MKMediaDesc* desc)
         return ret;
     }
 
-    media->streams[MKTRACK_TYPE_VIDEO]
+    media->streams[MK_TRACK_TYPE_VIDEO]
         = av_find_best_stream(format, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
 
-    media->streams[MKTRACK_TYPE_AUDIO] = av_find_best_stream(
-        format, AVMEDIA_TYPE_AUDIO, -1, media->streams[MKTRACK_TYPE_VIDEO],
+    media->streams[MK_TRACK_TYPE_AUDIO] = av_find_best_stream(
+        format, AVMEDIA_TYPE_AUDIO, -1, media->streams[MK_TRACK_TYPE_VIDEO],
         NULL, 0
     );
 
@@ -64,7 +64,7 @@ unsigned int mk_media_number_of_tracks(MKMedia* media)
     MK_ASSERT(media);
     unsigned int count = 0;
     int i;
-    for (i = 0; i < MKTRACK_TYPE_COUNT; i++) {
+    for (i = 0; i < MK_TRACK_TYPE_COUNT; i++) {
         if (media->streams[i] > -1) {
             count++;
         }
@@ -77,7 +77,7 @@ MKTrackType mk_media_get_track_type(MKMedia* media, unsigned int index)
     MK_ASSERT(media);
     AVStream* stream = media->context->format->streams[index];
     if (!stream) {
-        return MKTRACK_TYPE_UNKNOWN;
+        return MK_TRACK_TYPE_UNKNOWN;
     }
     AVCodecParameters* params = stream->codecpar;
     return mk_tracktype_from_avmediatype(params->codec_type);
@@ -101,13 +101,13 @@ int mk_media_get_track_from_type(
 
     track->stream_index = index;
 
-    if (type == MKTRACK_TYPE_VIDEO) {
+    if (type == MK_TRACK_TYPE_VIDEO) {
         track->width = params->width;
         track->height = params->height;
         track->format = params->format;
     }
 
-    if (type == MKTRACK_TYPE_AUDIO) {
+    if (type == MK_TRACK_TYPE_AUDIO) {
         track->format = params->format;
     }
 
