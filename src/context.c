@@ -3,10 +3,14 @@
 #include "decoder2.h"
 #include "format.h"
 #include "frame_queue.h"
+#include "libavformat/avformat.h"
 #include "libavutil/imgutils.h"
+#include "libavutil/rational.h"
 #include "libswscale/swscale.h"
 #include "maker/maker.h"
+#include "media.h"
 #include "util.h"
+#include <stdio.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -21,7 +25,6 @@ int mk_context_create(MKContext* context, MKContextDesc* desc)
     }
 
     context->is_aborted = 0;
-    context->is_eof = 0;
     context->video_output.pixel_format = MK_PXFMT_RGBA;
 
     int status;
@@ -35,7 +38,6 @@ int mk_context_create(MKContext* context, MKContextDesc* desc)
         &(MKDecoder2Desc) {
             .media = desc->media,
             .is_aborted = &context->is_aborted,
-            .is_eof = &context->is_eof,
         }
     );
     if (status != 0) {
@@ -122,21 +124,40 @@ _MK_PRIVATE int mk_context_video_refresh(MKContext* context)
 
     MKFrameQueue* picture_queue = &context->decoder.video.frame_q;
 
-    int time_spent;
-    status = mk_context_get_playback_time(context, &time_spent);
+    int time_spent_ms;
+    status = mk_context_get_playback_time(context, &time_spent_ms);
+    // printf("timespent=%i\n", time_spent_ms);
     if (status != 0) {
         return -1;
     }
 
-retry:
-    if (mk_frame_queue_remaining_frame_count(picture_queue) < 2) {
-        goto retry;
-    } else {
-        MKFrameQueueItem* next = mk_frame_queue_peek_next(picture_queue);
+    double time_spent = ((double)time_spent_ms) / 1000.0;
+    double time;
 
-        if (next->pts <= time_spent) {
-            mk_frame_queue_next(picture_queue); // drop frame
-            goto retry;
+    for (;;) {
+        if (mk_frame_queue_remaining_frame_count(picture_queue) < 2) {
+            // do nothing
+        } else {
+            MKFrameQueueItem* next = mk_frame_queue_peek_next(picture_queue);
+
+            int stream_index
+                = context->decoder.media->streams[MK_TRACK_TYPE_VIDEO];
+            AVStream* stream = context->decoder.media->context->format
+                                   ->streams[stream_index];
+
+            time = av_q2d(stream->time_base) * next->pts;
+
+            // printf("%f < %f\n", time, time_spent);
+            // printf(
+            //     // "%f\n", av_q2d(stream->time_base)
+            //     "%i/%i\n", stream->time_base.num, stream->time_base.den
+            // );
+
+            if (time <= time_spent) {
+                mk_frame_queue_next(picture_queue); // drop frame
+            } else {
+                break;
+            }
         }
     }
 
@@ -184,7 +205,7 @@ mk_media_async_decoder_yuv2rgb(MKContext* context, AVFrame* src_frame)
     return 0;
 }
 
-int mk_context_get_video_frame(MKContext* context, MKImageData* target)
+int mk_context_get_current_video_frame(MKContext* context, MKImageData* target)
 {
     if (context == NULL) {
         return -1;
@@ -239,4 +260,52 @@ int mk_context_get_video_frame(MKContext* context, MKImageData* target)
 
     context->next_pts = next->pts;
     return item->pts;
+}
+
+int mk_context_get_next_video_frame(MKContext* context, MKImageData* target)
+{
+    int ret;
+    MKFrameQueue* picture_queue = &context->decoder.video.frame_q;
+    MKVideoOutput* output = &context->video_output;
+
+    MKFrameQueueItem* item = mk_frame_queue_peek(picture_queue);
+    mk_frame_queue_next(picture_queue);
+
+    ret = mk_image_data_init(
+        target,
+        &(MKImageDataDesc) {
+            .width = item->width,
+            .height = item->height,
+            .format = output->pixel_format,
+        }
+    );
+    return ret;
+    if (ret != 0) {
+        printf("Failed to initialize image data\n");
+        return -1;
+    }
+
+    if (mk_media_async_decoder_yuv2rgb(context, item->frame)) {
+        printf("Failed to convert\n");
+        return -1;
+    }
+
+    ret = av_image_copy_to_buffer(
+        (target)->buffer, (target)->buffer_size,
+        (const uint8_t* const*)output->frame->data, output->frame->linesize,
+        mk_format_to_av_pixel_format(output->pixel_format), (target)->width,
+        (target)->height, 1
+    );
+
+    if (ret < 0) {
+        printf("Failed to copy image data\n");
+        return -1;
+    }
+
+    return item->pts;
+}
+
+int mk_context_has_frames(MKContext* context)
+{
+    return context->decoder.video.is_finished == 0;
 }

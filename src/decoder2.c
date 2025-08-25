@@ -22,13 +22,10 @@ int mk_decoder2_init(MKDecoder2* decoder, MKDecoder2Desc* desc)
     if (desc->is_aborted == NULL) {
         return -1;
     }
-    if (desc->is_eof == NULL) {
-        return -1;
-    }
 
     decoder->media = desc->media;
     decoder->is_aborted = desc->is_aborted;
-    decoder->is_eof = desc->is_eof;
+    decoder->is_eof = 0;
 
     int status;
 
@@ -96,7 +93,7 @@ fail:
     decoder->video.packet = NULL;
     decoder->media = NULL;
     decoder->is_aborted = NULL;
-    decoder->is_eof = NULL;
+    decoder->is_eof = 0;
 
     return -1;
 }
@@ -116,7 +113,7 @@ int mk_decoder2_destroy(MKDecoder2* decoder)
     decoder->video.packet = NULL;
     decoder->media = NULL;
     decoder->is_aborted = NULL;
-    decoder->is_eof = NULL;
+    decoder->is_eof = 0;
 
     return 0;
 }
@@ -158,8 +155,8 @@ _MK_PRIVATE int mk_decoder2_demuxer_thread(void* data)
 
         status = av_read_frame(format, packet);
         if (status < 0) {
-            if (status == AVERROR_EOF && *decoder->is_eof == 0) {
-                *decoder->is_eof = 1;
+            if (status == AVERROR_EOF && decoder->is_eof == 0) {
+                decoder->is_eof = 1;
             }
 
             mk_mutex_lock(&wait_mutex);
@@ -169,7 +166,7 @@ _MK_PRIVATE int mk_decoder2_demuxer_thread(void* data)
             mk_mutex_unlock(&wait_mutex);
             continue;
         } else {
-            *decoder->is_eof = 0;
+            decoder->is_eof = 0;
         }
 
         if (packet->stream_index == media->streams[MK_TRACK_TYPE_VIDEO]) {
@@ -195,7 +192,8 @@ the_end:
  * https://ffmpeg.org/doxygen/4.0/group__lavc__encdec.html
  */
 _MK_PRIVATE int mk_decoder2_get_video_frame(
-    MKVideoDecoder2* decoder, AVFrame* frame, MKCond* is_empty_signal
+    MKVideoDecoder2* decoder, AVFrame* frame, MKCond* is_empty_signal,
+    int is_eof
 )
 {
     int status = AVERROR(EAGAIN);
@@ -222,6 +220,10 @@ _MK_PRIVATE int mk_decoder2_get_video_frame(
 
         for (;;) {
             if (packet_queue->packet_count == 0) {
+                if (is_eof) {
+                    (void)is_empty_signal;
+                    break;
+                }
                 mk_cond_signal(is_empty_signal);
             }
 
@@ -265,7 +267,8 @@ _MK_PRIVATE int mk_decoder2_video_thread(void* data)
 
     for (;;) {
         status = mk_decoder2_get_video_frame(
-            video_decoder, frame, &decoder->demuxer.continue_signal
+            video_decoder, frame, &decoder->demuxer.continue_signal,
+            decoder->is_eof
         );
 
         if (status < 0) {

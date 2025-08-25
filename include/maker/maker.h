@@ -80,6 +80,10 @@ extern int mk_context_destroy(MKContext* context);
 extern int mk_context_start_playback(MKContext* context);
 extern int mk_context_pause_playback(MKContext* context);
 extern int mk_context_get_playback_time(MKContext* context, int* time_ms);
-extern int mk_context_get_video_frame(MKContext* context, MKImageData* target);
+extern int
+mk_context_get_current_video_frame(MKContext* context, MKImageData* target);
+extern int
+mk_context_get_next_video_frame(MKContext* context, MKImageData* target);
+extern int mk_context_has_frames(MKContext* context);
 
 #endif

@@ -19,7 +19,6 @@ typedef struct MKContext {
     MKVideoOutput video_output;
 
     int is_aborted;
-    int is_eof;
     int next_pts;
 } MKContext;
 

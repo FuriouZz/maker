@@ -37,16 +37,16 @@ int main(void)
 
     char buf[128];
 
-    int frame = 0;
+    int frame = -1;
     int time_ms;
-    while (context.is_eof == 0) {
-        mk_context_get_playback_time(&context, &time_ms);
-        status = mk_context_get_video_frame(&context, &target);
 
+    while (mk_context_has_frames(&context)) {
+        mk_context_get_playback_time(&context, &time_ms);
+        status = mk_context_get_current_video_frame(&context, &target);
         if (status > 0 && status != frame) {
             // MK_ASSERT(status == 0);
             frame = status;
-            snprintf(buf, 128, "tmp/async2_image_%d.ppm", frame);
+            snprintf(buf, 128, "tmp/async2_image_%010d.ppm", frame);
             mk_image_data_save_ppm(&target, buf);
         }
     }

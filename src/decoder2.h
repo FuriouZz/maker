@@ -25,7 +25,6 @@ typedef struct MKDemuxer2 {
 
 typedef struct MKDecoder2Desc {
     MKMedia* media;
-    int* is_eof;
     int* is_aborted;
 } MKDecoder2Desc;
 
@@ -34,7 +33,7 @@ typedef struct MKDecoder2 {
     MKVideoDecoder2 video;
     MKDemuxer2 demuxer;
 
-    int* is_eof;
+    int is_eof;
     int* is_aborted;
 } MKDecoder2;
 
