@@ -20,7 +20,7 @@ int mk_image_data_init(MKImageData* data, MKImageDataDesc* desc)
     int buffer_size
         = av_image_get_buffer_size(format, desc->width, desc->height, 1);
 
-    uint8_t* buffer = mk_malloc(buffer_size * sizeof(uint8_t));
+    uint8_t* buffer = mk_malloc_clear(buffer_size * sizeof(uint8_t));
     if (!buffer) {
         data->is_valid = 0;
         return -1;

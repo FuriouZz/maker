@@ -9,7 +9,7 @@ int mk_clock_init(MKClock* clock)
         return -1;
     }
 
-    clock->start_time = mk_malloc(sizeof(struct timespec));
+    clock->start_time = mk_malloc_clear(sizeof(struct timespec));
     return 0;
 }
 
@@ -64,7 +64,7 @@ int mk_clock_pause(MKClock* clock)
     int ret;
 
     if (clock->pause_time == NULL) {
-        clock->pause_time = mk_malloc(sizeof(struct timespec));
+        clock->pause_time = mk_malloc_clear(sizeof(struct timespec));
         ret = clock_gettime(CLOCK_MONOTONIC, clock->pause_time);
         if (ret != 0) {
             return -1;

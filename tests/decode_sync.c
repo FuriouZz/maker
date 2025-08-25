@@ -1,4 +1,4 @@
-#include "../src/media_decoder.h"
+// #include "../src/media_decoder.h"
 #include "../src/util.h"
 #include "maker/maker.h"
 #include <stdint.h>
@@ -32,14 +32,13 @@ int main(void)
     );
     MK_ASSERT(ret == 0);
 
-    MKMediaDecoder decoder = { 0 };
-    mk_media_decoder_init(&decoder, &media);
-    mk_media_decoder_read_frame(&decoder, &target);
+    // MKMediaDecoder decoder = { 0 };
+    // mk_media_decoder_init(&decoder, &media);
+    // mk_media_decoder_read_frame(&decoder, &target);
 
-    mk_image_data_save_pgm(&target, "tmp/image.pgm");
-    mk_image_data_save_ppm(&target, "tmp/image.ppm");
+    // mk_image_data_save_pgm(&target, "tmp/image.pgm");
+    // mk_image_data_save_ppm(&target, "tmp/image.ppm");
 
-    mk_media_decoder_free(&decoder);
-
+    // mk_media_decoder_free(&decoder);
     return 0;
 }

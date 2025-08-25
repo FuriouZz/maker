@@ -1,6 +1,6 @@
+#include "async_decoder.h"
 #include "clock.h"
 #include "context.h"
-#include "decoder2.h"
 #include "format.h"
 #include "frame_queue.h"
 #include "libavformat/avformat.h"
@@ -14,9 +14,9 @@
 #include <time.h>
 #include <unistd.h>
 
-int mk_context_create(MKContext* context, MKContextDesc* desc)
+int mk_context_create(MKContext* ctx, MKContextDesc* desc)
 {
-    if (context == NULL) {
+    if (desc == NULL) {
         return -1;
     }
 
@@ -24,62 +24,79 @@ int mk_context_create(MKContext* context, MKContextDesc* desc)
         return -1;
     }
 
-    context->is_aborted = 0;
-    context->video_output.pixel_format = MK_PXFMT_RGBA;
-
     int status;
-    status = mk_clock_init(&context->clock);
-    if (status != 0) {
+    MKInternalContext* context = mk_malloc_clear(sizeof(MKInternalContext));
+    if (context == NULL) {
         return -1;
     }
 
-    status = mk_decoder2_init(
+    ctx->context = context;
+    context->is_aborted = 0;
+    context->video_output.pixel_format = MK_PXFMT_RGBA;
+
+    status = mk_clock_init(&context->clock);
+    if (status != 0) {
+        goto cleanup_context;
+    }
+
+    status = mk_async_decoder_init(
         &context->decoder,
-        &(MKDecoder2Desc) {
+        &(MKAsyncDecoderDesc) {
             .media = desc->media,
             .is_aborted = &context->is_aborted,
         }
     );
     if (status != 0) {
-        mk_clock_free(&context->clock);
-        return -1;
+        goto cleanup_clock;
     }
 
-    status = mk_decoder2_start(&context->decoder);
+    status = mk_async_decoder_start(&context->decoder);
     if (status != 0) {
-        mk_decoder2_destroy(&context->decoder);
-        mk_clock_free(&context->clock);
-        return -1;
+        goto cleanup_async_decoder;
     }
 
     return 0;
+
+cleanup_async_decoder:
+    mk_async_decoder_destroy(&context->decoder);
+
+cleanup_clock:
+    mk_clock_free(&context->clock);
+
+cleanup_context:
+    mk_free(ctx->context);
+    ctx->context = NULL;
+
+    return -1;
 }
 
-int mk_context_start_playback(MKContext* context)
+int mk_context_start_playback(MKContext* ctx)
 {
-    if (context == NULL) {
+    if (ctx == NULL) {
         return -1;
     }
 
+    MKInternalContext* context = ctx->context;
     mk_clock_start(&context->clock);
 
     return 0;
 }
 
-int mk_context_pause_playback(MKContext* context)
+int mk_context_pause_playback(MKContext* ctx)
 {
-    if (context == NULL) {
+    if (ctx == NULL) {
         return -1;
     }
 
+    MKInternalContext* context = ctx->context;
     mk_clock_pause(&context->clock);
 
     return 0;
 }
 
-int mk_context_get_playback_time(MKContext* context, int* time_ms)
+int mk_context_get_playback_time(MKContext* ctx, int* time_ms)
 {
-    if (context == NULL) {
+    if (ctx == NULL) {
         return -1;
     }
     if (time_ms == NULL) {
@@ -87,6 +104,7 @@ int mk_context_get_playback_time(MKContext* context, int* time_ms)
     }
 
     int status;
+    MKInternalContext* context = ctx->context;
     MKClock* clock = &context->clock;
 
     MKTime time;
@@ -101,31 +119,60 @@ int mk_context_get_playback_time(MKContext* context, int* time_ms)
     return 0;
 }
 
-int mk_context_destroy(MKContext* context)
+int mk_context_set_playback_time(MKContext* ctx, int time_ms)
 {
-    if (context == NULL) {
+    if (ctx == NULL) {
         return -1;
     }
 
-    context->is_aborted = 1;
-    mk_decoder2_stop(&context->decoder);
-    mk_decoder2_destroy(&context->decoder);
+    int status;
+    MKInternalContext* context = ctx->context;
+    MKClock* clock = &context->clock;
+
+    int time_s = time_ms / 1000;
+    int time_ns = (time_ms - ((time_ms / 1000) * 1000)) * 1000000;
+
+    MKTime time;
+    status = mk_get_time(&time);
+    if (status != 0) {
+        return -1;
+    };
+
+    clock->start_time->tv_sec = time.tv_sec - time_s;
+    clock->start_time->tv_nsec = time.tv_nsec - time_ns;
 
     return 0;
 }
 
-_MK_PRIVATE int mk_context_video_refresh(MKContext* context)
+int mk_context_destroy(MKContext* ctx)
 {
-    if (context == NULL) {
+    if (ctx == NULL) {
         return -1;
     }
 
+    MKInternalContext* context = ctx->context;
+    context->is_aborted = 1;
+
+    mk_async_decoder_stop(&context->decoder);
+    mk_async_decoder_destroy(&context->decoder);
+    mk_free(context);
+
+    return 0;
+}
+
+_MK_PRIVATE int mk_context_video_refresh(MKContext* ctx)
+{
+    if (ctx == NULL) {
+        return -1;
+    }
+
+    MKInternalContext* context = ctx->context;
     int status;
 
     MKFrameQueue* picture_queue = &context->decoder.video.frame_q;
 
     int time_spent_ms;
-    status = mk_context_get_playback_time(context, &time_spent_ms);
+    status = mk_context_get_playback_time(ctx, &time_spent_ms);
     // printf("timespent=%i\n", time_spent_ms);
     if (status != 0) {
         return -1;
@@ -165,9 +212,14 @@ _MK_PRIVATE int mk_context_video_refresh(MKContext* context)
 }
 
 _MK_PRIVATE int
-mk_media_async_decoder_yuv2rgb(MKContext* context, AVFrame* src_frame)
+mk_media_async_decoder_yuv2rgb(MKContext* ctx, AVFrame* src_frame)
 {
+    if (ctx == NULL) {
+        return -1;
+    }
+
     int ret;
+    MKInternalContext* context = ctx->context;
     MKVideoOutput* output = &context->video_output;
     int width = context->decoder.video.codec_context->width;
     int height = context->decoder.video.codec_context->height;
@@ -205,14 +257,16 @@ mk_media_async_decoder_yuv2rgb(MKContext* context, AVFrame* src_frame)
     return 0;
 }
 
-int mk_context_get_current_video_frame(MKContext* context, MKImageData* target)
+int mk_context_get_current_video_frame(MKContext* ctx, MKImageData* target)
 {
-    if (context == NULL) {
+    if (ctx == NULL) {
         return -1;
     }
 
+    MKInternalContext* context = ctx->context;
+
     int status;
-    status = mk_context_video_refresh(context);
+    status = mk_context_video_refresh(ctx);
     if (status != 0) {
         return -1;
     }
@@ -241,7 +295,7 @@ int mk_context_get_current_video_frame(MKContext* context, MKImageData* target)
         return -1;
     }
 
-    if (mk_media_async_decoder_yuv2rgb(context, item->frame)) {
+    if (mk_media_async_decoder_yuv2rgb(ctx, item->frame)) {
         printf("Failed to convert\n");
         return -1;
     }
@@ -262,50 +316,13 @@ int mk_context_get_current_video_frame(MKContext* context, MKImageData* target)
     return item->pts;
 }
 
-int mk_context_get_next_video_frame(MKContext* context, MKImageData* target)
+int mk_context_has_frames(MKContext* ctx)
 {
-    int ret;
-    MKFrameQueue* picture_queue = &context->decoder.video.frame_q;
-    MKVideoOutput* output = &context->video_output;
-
-    MKFrameQueueItem* item = mk_frame_queue_peek(picture_queue);
-    mk_frame_queue_next(picture_queue);
-
-    ret = mk_image_data_init(
-        target,
-        &(MKImageDataDesc) {
-            .width = item->width,
-            .height = item->height,
-            .format = output->pixel_format,
-        }
-    );
-    return ret;
-    if (ret != 0) {
-        printf("Failed to initialize image data\n");
+    if (ctx == NULL) {
         return -1;
     }
 
-    if (mk_media_async_decoder_yuv2rgb(context, item->frame)) {
-        printf("Failed to convert\n");
-        return -1;
-    }
+    MKInternalContext* context = ctx->context;
 
-    ret = av_image_copy_to_buffer(
-        (target)->buffer, (target)->buffer_size,
-        (const uint8_t* const*)output->frame->data, output->frame->linesize,
-        mk_format_to_av_pixel_format(output->pixel_format), (target)->width,
-        (target)->height, 1
-    );
-
-    if (ret < 0) {
-        printf("Failed to copy image data\n");
-        return -1;
-    }
-
-    return item->pts;
-}
-
-int mk_context_has_frames(MKContext* context)
-{
     return context->decoder.video.is_finished == 0;
 }

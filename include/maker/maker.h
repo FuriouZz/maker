@@ -61,7 +61,9 @@ typedef struct MKContextDesc {
     MKMedia* media;
 } MKContextDesc;
 
-typedef struct MKContext MKContext;
+typedef struct MKContext {
+    void* context;
+} MKContext;
 
 extern int mk_media_init(MKMedia* media, MKMediaDesc* desc);
 extern void mk_media_destroy(MKMedia* media);
@@ -80,10 +82,9 @@ extern int mk_context_destroy(MKContext* context);
 extern int mk_context_start_playback(MKContext* context);
 extern int mk_context_pause_playback(MKContext* context);
 extern int mk_context_get_playback_time(MKContext* context, int* time_ms);
+extern int mk_context_set_playback_time(MKContext* ctx, int time_ms);
 extern int
 mk_context_get_current_video_frame(MKContext* context, MKImageData* target);
-extern int
-mk_context_get_next_video_frame(MKContext* context, MKImageData* target);
 extern int mk_context_has_frames(MKContext* context);
 
 #endif

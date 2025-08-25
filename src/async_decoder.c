@@ -1,4 +1,4 @@
-#include "decoder2.h"
+#include "async_decoder.h"
 #include "frame_queue.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/packet.h"
@@ -11,7 +11,7 @@
 
 #define MAX_QUEUE_ITEM (15 * 1024 * 1024)
 
-int mk_decoder2_init(MKDecoder2* decoder, MKDecoder2Desc* desc)
+int mk_async_decoder_init(MKAsyncDecoder* decoder, MKAsyncDecoderDesc* desc)
 {
     if (decoder == NULL) {
         return -1;
@@ -31,22 +31,22 @@ int mk_decoder2_init(MKDecoder2* decoder, MKDecoder2Desc* desc)
 
     status = mk_cond_init(&decoder->demuxer.continue_signal);
     if (status != 0) {
-        goto fail;
+        goto cleanup_fields;
     }
 
     int video_stream_index = decoder->media->streams[MK_TRACK_TYPE_VIDEO];
 
     if (video_stream_index > -1) {
-        MKVideoDecoder2* video = &decoder->video;
+        MKAsyncVideoDecoder* video = &decoder->video;
 
         status = mk_packet_queue_init(&video->packet_q);
         if (status != 0) {
-            goto fail;
+            goto cleanup_cond;
         }
 
         status = mk_frame_queue_init(&video->frame_q, &video->packet_q, 16, 1);
         if (status != 0) {
-            goto fail;
+            goto cleanup_packet_q;
         }
 
         AVFormatContext* format = decoder->media->context->format;
@@ -55,50 +55,58 @@ int mk_decoder2_init(MKDecoder2* decoder, MKDecoder2Desc* desc)
 
         const AVCodec* codec = avcodec_find_decoder(params->codec_id);
         if (codec == NULL) {
-            goto fail;
+            goto cleanup_frame_q;
         }
 
         AVCodecContext* codec_context = avcodec_alloc_context3(codec);
         if (codec_context == NULL) {
-            goto fail;
+            goto cleanup_frame_q;
         }
         video->codec_context = codec_context;
 
         status = avcodec_parameters_to_context(codec_context, params);
         if (status != 0) {
-            goto fail;
+            goto cleanup_codec_context;
         }
 
         status = avcodec_open2(codec_context, codec, NULL);
         if (status != 0) {
-            goto fail;
+            goto cleanup_codec_context;
         }
 
         AVPacket* packet = av_packet_alloc();
-        if (codec_context == NULL) {
-            goto fail;
+        if (packet == NULL) {
+            goto cleanup_codec_context;
         }
         video->packet = packet;
     }
 
     return 0;
 
-fail:
-    mk_frame_queue_destroy(&decoder->video.frame_q);
-    mk_packet_queue_destroy(&decoder->video.packet_q);
+    // av_packet_free(&decoder->video.packet);
+    // decoder->video.packet = NULL;
+
+cleanup_codec_context:
     avcodec_free_context(&decoder->video.codec_context);
     decoder->video.codec_context = NULL;
-    av_packet_free(&decoder->video.packet);
+
+cleanup_frame_q:
+    mk_frame_queue_destroy(&decoder->video.frame_q);
+
+cleanup_packet_q:
+    mk_packet_queue_destroy(&decoder->video.packet_q);
+
+cleanup_cond:
     mk_cond_destroy(&decoder->demuxer.continue_signal);
-    decoder->video.packet = NULL;
+
+cleanup_fields:
     decoder->media = NULL;
     decoder->is_aborted = NULL;
     decoder->is_eof = 0;
-
     return -1;
 }
 
-int mk_decoder2_destroy(MKDecoder2* decoder)
+int mk_async_decoder_destroy(MKAsyncDecoder* decoder)
 {
     if (decoder == NULL) {
         return -1;
@@ -118,10 +126,10 @@ int mk_decoder2_destroy(MKDecoder2* decoder)
     return 0;
 }
 
-_MK_PRIVATE int mk_decoder2_demuxer_thread(void* data)
+_MK_PRIVATE int mk_async_decoder_demuxer_thread(void* data)
 {
     int status;
-    MKDecoder2* decoder = data;
+    MKAsyncDecoder* decoder = data;
     MKMedia* media = decoder->media;
     MKPacketQueue* video_q = &decoder->video.packet_q;
     AVFormatContext* format = media->context->format;
@@ -191,8 +199,8 @@ the_end:
  * Decoding API
  * https://ffmpeg.org/doxygen/4.0/group__lavc__encdec.html
  */
-_MK_PRIVATE int mk_decoder2_get_video_frame(
-    MKVideoDecoder2* decoder, AVFrame* frame, MKCond* is_empty_signal,
+_MK_PRIVATE int mk_async_decoder_get_video_frame(
+    MKAsyncVideoDecoder* decoder, AVFrame* frame, MKCond* is_empty_signal,
     int is_eof
 )
 {
@@ -253,12 +261,12 @@ _MK_PRIVATE int mk_decoder2_get_video_frame(
     return 0;
 }
 
-_MK_PRIVATE int mk_decoder2_video_thread(void* data)
+_MK_PRIVATE int mk_async_decoder_video_thread(void* data)
 {
     int status;
-    MKDecoder2* decoder = data;
+    MKAsyncDecoder* decoder = data;
     MKFrameQueue* picture_queue = &decoder->video.frame_q;
-    MKVideoDecoder2* video_decoder = &decoder->video;
+    MKAsyncVideoDecoder* video_decoder = &decoder->video;
 
     AVFrame* frame = av_frame_alloc();
     if (frame == NULL) {
@@ -266,7 +274,7 @@ _MK_PRIVATE int mk_decoder2_video_thread(void* data)
     }
 
     for (;;) {
-        status = mk_decoder2_get_video_frame(
+        status = mk_async_decoder_get_video_frame(
             video_decoder, frame, &decoder->demuxer.continue_signal,
             decoder->is_eof
         );
@@ -305,7 +313,7 @@ the_end:
     return 0;
 }
 
-int mk_decoder2_start(MKDecoder2* decoder)
+int mk_async_decoder_start(MKAsyncDecoder* decoder)
 {
     if (decoder == NULL) {
         return -1;
@@ -316,7 +324,7 @@ int mk_decoder2_start(MKDecoder2* decoder)
     MKThread* demuxer_thread = &decoder->demuxer.thread;
 
     demuxer_thread->name = "demuxer_thread";
-    demuxer_thread->fn = mk_decoder2_demuxer_thread;
+    demuxer_thread->fn = mk_async_decoder_demuxer_thread;
     demuxer_thread->userdata = decoder;
     status = mk_thread_init(demuxer_thread);
     if (status != 0) {
@@ -327,7 +335,7 @@ int mk_decoder2_start(MKDecoder2* decoder)
         mk_packet_queue_start(&decoder->video.packet_q);
         MKThread* video_thread = &decoder->video.thread;
         video_thread->name = "video_thread";
-        video_thread->fn = mk_decoder2_video_thread;
+        video_thread->fn = mk_async_decoder_video_thread;
         video_thread->userdata = decoder;
         status = mk_thread_init(video_thread);
         if (status != 0) {
@@ -338,7 +346,7 @@ int mk_decoder2_start(MKDecoder2* decoder)
     return 0;
 }
 
-int mk_decoder2_stop(MKDecoder2* decoder)
+int mk_async_decoder_stop(MKAsyncDecoder* decoder)
 {
     if (decoder == NULL) {
         return -1;
@@ -354,7 +362,7 @@ int mk_decoder2_stop(MKDecoder2* decoder)
     mk_thread_wait(demuxer_thread, NULL);
 
     if (media->streams[MK_TRACK_TYPE_VIDEO] > -1) {
-        MKVideoDecoder2* video_decoder = &decoder->video;
+        MKAsyncVideoDecoder* video_decoder = &decoder->video;
         mk_packet_queue_abort(&video_decoder->packet_q);
         mk_frame_queue_trigger_changes(&video_decoder->frame_q);
         mk_thread_wait(&video_decoder->thread, NULL);

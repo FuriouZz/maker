@@ -1,8 +1,8 @@
 #ifndef MK_CONTEXT_H
 #define MK_CONTEXT_H
 
+#include "async_decoder.h"
 #include "clock.h"
-#include "decoder2.h"
 #include "maker/maker.h"
 
 typedef struct MKVideoOutput {
@@ -12,14 +12,14 @@ typedef struct MKVideoOutput {
     AVFrame* frame;
 } MKVideoOutput;
 
-typedef struct MKContext {
-    MKDecoder2 decoder;
+typedef struct MKInternalContext {
+    MKAsyncDecoder decoder;
     MKClock clock;
 
     MKVideoOutput video_output;
 
     int is_aborted;
     int next_pts;
-} MKContext;
+} MKInternalContext;
 
 #endif
