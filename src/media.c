@@ -15,7 +15,7 @@ int mk_media_init(MKMedia* media, MKMediaDesc* desc)
     MK_ASSERT(media);
     MK_ASSERT(desc);
 
-    mk_memset(media->streams, 0, sizeof(media->streams));
+    mk_memset(media->streams, -1, sizeof(media->streams));
 
     ret = mk_file_exists(desc->filename);
     if (ret != 0) {
@@ -48,6 +48,7 @@ int mk_media_init(MKMedia* media, MKMediaDesc* desc)
     media->filename = desc->filename;
     media->context = mk_malloc_clear(sizeof(MKMediaContext));
     media->context->format = format;
+    media->is_initialized = 1;
 
     return 0;
 }

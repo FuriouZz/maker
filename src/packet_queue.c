@@ -2,18 +2,17 @@
 #include "util.h"
 #include <stdio.h>
 
-int mk_packet_queue_init(MKPacketQueue* queue)
+int mk_init_packet_queue(MKPacketQueue* queue)
 {
-    mk_clear(queue, sizeof(MKPacketQueue));
-    int ret;
-    ret = mk_mutex_init(&queue->mutex);
-    if (ret != 0) {
-        return ret;
+    int status;
+    status = mk_mutex_init(&queue->mutex);
+    if (status != 0) {
+        return -1;
     }
 
-    ret = mk_cond_init(&queue->new_item_signal);
-    if (ret != 0) {
-        return ret;
+    status = mk_cond_init(&queue->new_item_signal);
+    if (status != 0) {
+        return -1;
     }
 
     queue->items
@@ -22,7 +21,7 @@ int mk_packet_queue_init(MKPacketQueue* queue)
     return 0;
 }
 
-void mk_packet_queue_flush(MKPacketQueue* queue)
+void mk_flush_packet_queue(MKPacketQueue* queue)
 {
     MKPacketQueueItem pkt;
     mk_mutex_lock(&queue->mutex);
@@ -36,15 +35,15 @@ void mk_packet_queue_flush(MKPacketQueue* queue)
     mk_mutex_unlock(&queue->mutex);
 }
 
-void mk_packet_queue_destroy(MKPacketQueue* queue)
+void mk_uninit_packet_queue(MKPacketQueue* queue)
 {
-    mk_packet_queue_flush(queue);
+    mk_flush_packet_queue(queue);
     av_fifo_freep2(&queue->items);
     mk_mutex_destroy(&queue->mutex);
     mk_cond_destroy(&queue->new_item_signal);
 }
 
-void mk_packet_queue_start(MKPacketQueue* queue)
+void mk_start_packet_queue(MKPacketQueue* queue)
 {
     mk_mutex_lock(&queue->mutex);
     queue->is_aborted = 0;
@@ -52,7 +51,7 @@ void mk_packet_queue_start(MKPacketQueue* queue)
     mk_mutex_unlock(&queue->mutex);
 }
 
-void mk_packet_queue_abort(MKPacketQueue* queue)
+void mk_abort_packet_queue(MKPacketQueue* queue)
 {
     mk_mutex_lock(&queue->mutex);
     queue->is_aborted = 1;
@@ -87,7 +86,7 @@ mk_packet_queue_put_private(MKPacketQueue* queue, AVPacket* packet)
     return ret;
 }
 
-int mk_packet_queue_put(MKPacketQueue* queue, AVPacket* packet)
+int mk_put_packet(MKPacketQueue* queue, AVPacket* packet)
 {
     int ret;
     AVPacket* tmp = av_packet_alloc();
@@ -109,7 +108,7 @@ int mk_packet_queue_put(MKPacketQueue* queue, AVPacket* packet)
     return ret;
 }
 
-int mk_packet_queue_get(
+int mk_get_packet_queue(
     MKPacketQueue* queue, AVPacket* packet, int should_block, int* serial
 )
 {
@@ -133,14 +132,11 @@ int mk_packet_queue_get(
             queue->packet_count--;
             queue->byte_size -= packet->size + sizeof(MKPacketQueueItem);
             queue->duration -= packet->duration;
-            // printf("get new item\n");
             ret = 1;
             break;
         } else if (should_block) {
-            // printf("wait new item\n");
             mk_cond_wait(&queue->new_item_signal, &queue->mutex);
         } else {
-            // printf("no item\n");
             ret = 0;
             break;
         }

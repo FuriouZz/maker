@@ -39,12 +39,12 @@ int mk_async_decoder_init(MKAsyncDecoder* decoder, MKAsyncDecoderDesc* desc)
     if (video_stream_index > -1) {
         MKAsyncVideoDecoder* video = &decoder->video;
 
-        status = mk_packet_queue_init(&video->packet_q);
+        status = mk_init_packet_queue(&video->packet_q);
         if (status != 0) {
             goto cleanup_cond;
         }
 
-        status = mk_frame_queue_init(&video->frame_q, &video->packet_q, 16, 1);
+        status = mk_init_frame_queue(&video->frame_q, &video->packet_q, 16, 1);
         if (status != 0) {
             goto cleanup_packet_q;
         }
@@ -91,10 +91,10 @@ cleanup_codec_context:
     decoder->video.codec_context = NULL;
 
 cleanup_frame_q:
-    mk_frame_queue_destroy(&decoder->video.frame_q);
+    mk_uninit_frame_queue(&decoder->video.frame_q);
 
 cleanup_packet_q:
-    mk_packet_queue_destroy(&decoder->video.packet_q);
+    mk_uninit_packet_queue(&decoder->video.packet_q);
 
 cleanup_cond:
     mk_cond_destroy(&decoder->demuxer.continue_signal);
@@ -112,8 +112,8 @@ int mk_async_decoder_destroy(MKAsyncDecoder* decoder)
         return -1;
     }
 
-    mk_frame_queue_destroy(&decoder->video.frame_q);
-    mk_packet_queue_destroy(&decoder->video.packet_q);
+    mk_uninit_frame_queue(&decoder->video.frame_q);
+    mk_uninit_packet_queue(&decoder->video.packet_q);
     avcodec_free_context(&decoder->video.codec_context);
     decoder->video.codec_context = NULL;
     av_packet_free(&decoder->video.packet);
@@ -182,7 +182,7 @@ _MK_PRIVATE int mk_async_decoder_demuxer_thread(void* data)
                 "packet - pts=%lld dts=%lld pos=%lld\n", packet->pts,
                 packet->dts, packet->pos
             );
-            mk_packet_queue_put(video_q, packet);
+            mk_put_packet(video_q, packet);
         } else {
             av_packet_unref(packet);
         }
@@ -236,7 +236,7 @@ _MK_PRIVATE int mk_async_decoder_get_video_frame(
             }
 
             status
-                = mk_packet_queue_get(packet_queue, decoder->packet, 1, NULL);
+                = mk_get_packet_queue(packet_queue, decoder->packet, 1, NULL);
 
             if (status < 0) {
                 return -1;
@@ -287,7 +287,7 @@ _MK_PRIVATE int mk_async_decoder_video_thread(void* data)
             continue;
         }
 
-        MKFrameQueueItem* item = mk_frame_queue_peek_writable(picture_queue);
+        MKFrameQueueItem* item = mk_peek_writable_frame(picture_queue);
         if (item == NULL) {
             break;
         }
@@ -304,7 +304,7 @@ _MK_PRIVATE int mk_async_decoder_video_thread(void* data)
         item->duration = frame->duration;
         av_frame_move_ref(item->frame, frame);
         av_frame_unref(frame);
-        mk_frame_queue_push(picture_queue);
+        mk_push_writable_frame(picture_queue);
     }
 
 the_end:
@@ -332,7 +332,7 @@ int mk_async_decoder_start(MKAsyncDecoder* decoder)
     }
 
     if (media->streams[MK_TRACK_TYPE_VIDEO] > -1) {
-        mk_packet_queue_start(&decoder->video.packet_q);
+        mk_start_packet_queue(&decoder->video.packet_q);
         MKThread* video_thread = &decoder->video.thread;
         video_thread->name = "video_thread";
         video_thread->fn = mk_async_decoder_video_thread;
@@ -363,10 +363,10 @@ int mk_async_decoder_stop(MKAsyncDecoder* decoder)
 
     if (media->streams[MK_TRACK_TYPE_VIDEO] > -1) {
         MKAsyncVideoDecoder* video_decoder = &decoder->video;
-        mk_packet_queue_abort(&video_decoder->packet_q);
-        mk_frame_queue_trigger_changes(&video_decoder->frame_q);
+        mk_abort_packet_queue(&video_decoder->packet_q);
+        mk_trigger_frame_queue_changes(&video_decoder->frame_q);
         mk_thread_wait(&video_decoder->thread, NULL);
-        mk_packet_queue_flush(&video_decoder->packet_q);
+        mk_flush_packet_queue(&video_decoder->packet_q);
     }
 
     return 0;

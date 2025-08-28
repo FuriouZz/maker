@@ -9,12 +9,6 @@
 #endif
 #endif
 
-#ifndef MK_DEBUG
-#ifndef NDEBUG
-#define MK_DEBUG
-#endif
-#endif
-
 #ifndef MK_ASSERT
 #include <assert.h>
 #define MK_ASSERT(c) assert(c)

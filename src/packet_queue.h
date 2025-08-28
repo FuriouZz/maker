@@ -21,19 +21,19 @@ typedef struct MKPacketQueue {
     MKCond new_item_signal;
 } MKPacketQueue;
 
-extern int mk_packet_queue_init(MKPacketQueue* queue);
+extern int mk_init_packet_queue(MKPacketQueue* queue);
 
-extern void mk_packet_queue_destroy(MKPacketQueue* queue);
+extern void mk_uninit_packet_queue(MKPacketQueue* queue);
 
-extern void mk_packet_queue_start(MKPacketQueue* queue);
+extern void mk_start_packet_queue(MKPacketQueue* queue);
 
-extern void mk_packet_queue_abort(MKPacketQueue* queue);
+extern void mk_abort_packet_queue(MKPacketQueue* queue);
 
-extern void mk_packet_queue_flush(MKPacketQueue* queue);
+extern void mk_flush_packet_queue(MKPacketQueue* queue);
 
-extern int mk_packet_queue_put(MKPacketQueue* queue, AVPacket* packet);
+extern int mk_put_packet(MKPacketQueue* queue, AVPacket* packet);
 
-extern int mk_packet_queue_get(
+extern int mk_get_packet_queue(
     MKPacketQueue* queue, AVPacket* packet, int should_block, int* serial
 );
 

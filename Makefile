@@ -1,8 +1,11 @@
 include config.make
 
-CFLAGS += -Wall -Wextra -Werror -Wunused -pedantic -std=c11
+CFLAGS = -Wall -Wextra -Werror -Wunused -pedantic -std=c11 -DMK_DEBUG=1
 
+# MK1_FILES := async_decoder clock context format util image_data media mutex packet_queue thread track frame_queue
+# MK2_FILES := context2 decoder_pool pool util error
 SOURCES := $(wildcard $(SOURCE_DIR)/*.c)
+# SOURCES := $(MK2_FILES:%=$(SOURCE_DIR)/%.c)
 OBJECTS := $(SOURCES:$(SOURCE_DIR)/%.c=$(BUILD_DIR)/%.o)
 
 TEST_SOURCES := $(wildcard $(TEST_SOURCE_DIR)/*.c)
@@ -22,6 +25,11 @@ build: $(LIBRARY_PATH) ## Clean and build the library
 .PHONY: bear
 bear: ## Generate compile_commands.json with BEAR
 	bear -- $(MAKE) $(MAKESILENT) clean build
+
+.PHONY: cscope
+cscope: ## Navigate through files
+	echo "$(wildcard $(SOURCE_DIR)/*)" > cscope.files
+	cscope -X -i cscope.files
 
 ##@ Test commands
 .PHONY: test

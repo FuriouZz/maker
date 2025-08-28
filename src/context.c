@@ -182,10 +182,10 @@ _MK_PRIVATE int mk_context_video_refresh(MKContext* ctx)
     double time;
 
     for (;;) {
-        if (mk_frame_queue_remaining_frame_count(picture_queue) < 2) {
+        if (mk_remaining_frame_count(picture_queue) < 2) {
             // do nothing
         } else {
-            MKFrameQueueItem* next = mk_frame_queue_peek_next(picture_queue);
+            MKFrameQueueItem* next = mk_peek_next_frame(picture_queue);
 
             int stream_index
                 = context->decoder.media->streams[MK_TRACK_TYPE_VIDEO];
@@ -194,14 +194,8 @@ _MK_PRIVATE int mk_context_video_refresh(MKContext* ctx)
 
             time = av_q2d(stream->time_base) * next->pts;
 
-            // printf("%f < %f\n", time, time_spent);
-            // printf(
-            //     // "%f\n", av_q2d(stream->time_base)
-            //     "%i/%i\n", stream->time_base.num, stream->time_base.den
-            // );
-
             if (time <= time_spent) {
-                mk_frame_queue_next(picture_queue); // drop frame
+                mk_drop_frame(picture_queue); // drop frame
             } else {
                 break;
             }
@@ -275,8 +269,8 @@ int mk_context_get_current_video_frame(MKContext* ctx, MKImageData* target)
     MKFrameQueue* picture_queue = &context->decoder.video.frame_q;
     MKVideoOutput* output = &context->video_output;
 
-    MKFrameQueueItem* item = mk_frame_queue_peek(picture_queue);
-    MKFrameQueueItem* next = mk_frame_queue_peek_next(picture_queue);
+    MKFrameQueueItem* item = mk_peek_frame(picture_queue);
+    MKFrameQueueItem* next = mk_peek_next_frame(picture_queue);
     if (next->pts == context->next_pts) {
         return item->pts;
     }
