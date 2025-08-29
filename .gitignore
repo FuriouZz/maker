@@ -6,3 +6,5 @@ tmp
 tests/tmp
 .cache
 vendors
+cscope.files
+cscope.out
