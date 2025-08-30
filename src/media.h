@@ -2,10 +2,9 @@
 #define MK_MEDIA_H
 
 #include "libavformat/avformat.h"
-#include "maker/maker.h"
 
-typedef struct MKMediaContext {
+typedef struct MKInternalMediaContext {
     AVFormatContext* format;
-} MKMediaContext;
+} MKInternalMediaContext;
 
 #endif

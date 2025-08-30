@@ -45,7 +45,7 @@ typedef struct MKTrack {
     int is_valid; /* boolean */
 } MKTrack;
 
-typedef struct MKMediaContext MKMediaContext;
+typedef struct MKInternalMediaContext MKMediaContext;
 
 typedef struct MKMedia {
     const char*     filename;
@@ -97,7 +97,7 @@ typedef enum MKResourceState {
     _MK_RESOURCESTATE_FORCE_U32 = 0x7FFFFFFF
 } MKResourceState;
 
-typedef struct MKContext2 MKContext2;
+typedef struct MKInternalContext2 MKContext2;
 
 typedef struct MKMediaHandle {
     uint32_t slot_id;

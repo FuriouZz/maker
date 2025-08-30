@@ -36,8 +36,6 @@ extern int mk_mutex_trylock(MKMutex* mutex);
  */
 extern int mk_mutex_unlock(MKMutex* mutex);
 
-typedef struct MKCond MKCond;
-
 extern int mk_cond_init(MKCond* cond);
 
 extern int mk_cond_destroy(MKCond* cond);

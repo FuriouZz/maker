@@ -1,6 +1,6 @@
 include config.make
 
-CFLAGS = -Wall -Wextra -Werror -Wunused -pedantic -std=c11 -DMK_DEBUG=1
+CFLAGS = -Wall -Wextra -Werror -Wunused -pedantic -std=c99 -DMK_DEBUG=1
 
 # MK1_FILES := async_decoder clock context format util image_data media mutex packet_queue thread track frame_queue
 # MK2_FILES := context2 decoder_pool pool util error
