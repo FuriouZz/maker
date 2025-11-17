@@ -2,19 +2,18 @@
 #define MK_CONTEXT_H
 
 #include "async_decoder.h"
-#include "clock.h"
 #include "maker/maker.h"
 
 typedef struct MKVideoOutput {
-    MKImageData image_data;
-    MKPixelFormat pixel_format;
+    MKImageData        image_data;
+    MKPixelFormat      pixel_format;
     struct SwsContext* sws_context;
-    AVFrame* frame;
+    AVFrame*           frame;
 } MKVideoOutput;
 
 typedef struct MKInternalContext {
     MKAsyncDecoder decoder;
-    MKClock clock;
+    MKClock        clock;
 
     MKVideoOutput video_output;
 

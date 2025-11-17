@@ -1,28 +1,36 @@
-#include "decoder_pool.h"
 #include "maker/maker.h"
 #include "maker_internal.h"
-#include "media_pool.h"
-#include "message_queue.h"
-#include "pool.h"
-#include "thread_manager.h"
-#include "util.h"
+#include <stdio.h>
 
-MKContext2* mk_context_init(void)
+MKContext* mk_context_init(void)
 {
-    MKContext2* context = mk_malloc(sizeof(MKContext2));
+    MKContext* context = mk_malloc(sizeof(MKContext));
     MK_ASSERT(context);
 
+    mk_thread_pool_init(&context->pool, 4, 16);
     mk_decoder_pool_init(&context->decoder_p);
     mk_media_pool_init(&context->media_p);
-    mk_message_queue_init(&context->message_q);
-    mk_thread_manager_init(&context->thread_m, &context->decoder_p, &context->message_q);
+
+    context->demux_context.decoder.slot_id  = 0;
+    context->demux_context.decoder_p        = &context->decoder_p;
+    context->decode_context.decoder.slot_id = 0;
+    context->decode_context.decoder_p       = &context->decoder_p;
 
     return context;
 }
 
-MKMediaHandle mk_context_open_input(
-    MKContext2* context, char* filename
-)
+void mk_context_uninit(MKContext* context)
+{
+    MK_ASSERT(context);
+
+    mk_thread_pool_uninit(&context->pool);
+    mk_decoder_pool_uninit(&context->decoder_p);
+    mk_media_pool_uninit(&context->media_p);
+
+    mk_free(context);
+}
+
+MKMediaHandle mk_context_open_input(MKContext* context, char* filename)
 {
     MK_ASSERT(context);
 
@@ -34,19 +42,81 @@ MKMediaHandle mk_context_open_input(
     return handle;
 }
 
-void mk_context_start_decoding(MKContext2* context)
-{
-    MK_ASSERT(context);
-    mk_thread_manager_start(&context->thread_m);
-}
+// int32 mk_context_start_playback(MKContext* ctx)
+// {
+//     if (ctx == NULL) {
+//         return -1;
+//     }
 
-void mk_context_stop_decoding(MKContext2* context)
-{
-    MK_ASSERT(context);
-    mk_thread_manager_stop(&context->thread_m);
-}
+//     MKInternalContext* context = ctx->context;
+//     mk_clock_start(&context->clock);
 
-MKDecoderHandle mk_context_create_decoder(MKContext2* context, MKMediaHandle* media_handle)
+//     return 0;
+// }
+
+// int32 mk_context_pause_playback(MKContext* ctx)
+// {
+//     if (ctx == NULL) {
+//         return -1;
+//     }
+
+//     MKInternalContext* context = ctx->context;
+//     mk_clock_pause(&context->clock);
+
+//     return 0;
+// }
+
+// int32 mk_context_get_playback_time(MKContext* ctx, int32* time_ms)
+// {
+//     if (ctx == NULL) {
+//         return -1;
+//     }
+//     if (time_ms == NULL) {
+//         return -1;
+//     }
+
+//     int32              status;
+//     MKInternalContext* context = ctx->context;
+//     MKClock*           clock   = &context->clock;
+
+//     MKTime time;
+//     status = mk_get_time(&time);
+//     if (status != 0) {
+//         return -1;
+//     };
+
+//     *time_ms = (time.tv_sec - clock->start_time->tv_sec) * 1000
+//         + (time.tv_nsec - clock->start_time->tv_nsec) / 1000000;
+
+//     return 0;
+// }
+
+// int32 mk_context_set_playback_time(MKContext* ctx, int time_ms)
+// {
+//     if (ctx == NULL) {
+//         return -1;
+//     }
+
+//     int                status;
+//     MKInternalContext* context = ctx->context;
+//     MKClock*           clock   = &context->clock;
+
+//     int time_s  = time_ms / 1000;
+//     int time_ns = (time_ms - ((time_ms / 1000) * 1000)) * 1000000;
+
+//     MKTime time;
+//     status = mk_get_time(&time);
+//     if (status != 0) {
+//         return -1;
+//     };
+
+//     clock->start_time->tv_sec  = time.tv_sec - time_s;
+//     clock->start_time->tv_nsec = time.tv_nsec - time_ns;
+
+//     return 0;
+// }
+
+MKDecoderHandle mk_context_create_decoder(MKContext* context, MKMediaHandle* media_handle)
 {
     MK_ASSERT(context);
     MK_ASSERT(media_handle);
@@ -62,7 +132,7 @@ MKDecoderHandle mk_context_create_decoder(MKContext2* context, MKMediaHandle* me
     return decoder_handle;
 }
 
-void mk_context_drop_decoder(MKContext2* context, MKDecoderHandle* decoder_handle)
+void mk_context_drop_decoder(MKContext* context, MKDecoderHandle* decoder_handle)
 {
     MK_ASSERT(context);
     MK_ASSERT(decoder_handle);
@@ -70,28 +140,81 @@ void mk_context_drop_decoder(MKContext2* context, MKDecoderHandle* decoder_handl
     MKDecoderPool* decoder_pool = &context->decoder_p;
     mk_decoder_pool_uninit_decoder(decoder_pool, decoder_handle);
     mk_decoder_pool_dealloc_decoder(decoder_pool, decoder_handle);
-
-    if (mk_pool_is_empty(&context->decoder_p.pool)) {
-        mk_thread_manager_stop(&context->thread_m);
-    }
 }
 
-int mk_context_get_video_frame(MKContext2* context, MKDecoderHandle* handle)
+MK_PRIVATE void mk__context_demux(void* data)
 {
-    MK_ASSERT(context);
+    MKDecoderData*  ctx     = (MKDecoderData*)data;
+    MKDecoderPool*  pool    = ctx->decoder_p;
+    MKDecoderHandle decoder = { .slot_id = ctx->decoder.slot_id };
 
-    MKMessageQueue* queue = &context->message_q;
-    mk_message_queue_send_message(
-        queue,
-        &(MKMessageData) {
-            .kind = MK_MESSAGEKIND_DEMUX,
-            .data = {
-                .handle = {
-                    .slot_id = handle->slot_id,
-                },
-            },
+    mk_decoder_pool_demux(pool, &decoder, NULL);
+    if (ctx->complete_signal) mk_cond_signal(ctx->complete_signal);
+}
+
+MK_PRIVATE void mk__context_decode_video(void* data)
+{
+    MKDecoderData*  ctx     = (MKDecoderData*)data;
+    MKDecoderPool*  pool    = ctx->decoder_p;
+    MKDecoderHandle decoder = { .slot_id = ctx->decoder.slot_id };
+
+    mk_decoder_pool_decode_video(pool, &decoder, NULL);
+    if (ctx->complete_signal) mk_cond_signal(ctx->complete_signal);
+}
+
+int mk_context_get_video_frame(MKContext* context, MKDecoderHandle* handle)
+{
+    MK_CHECK_VALID(context);
+    MK_CHECK_VALID(handle);
+
+    MKMutex        mutex = { 0 };
+    MKDecoderData* data  = NULL;
+
+    i32 has_video_packets = mk_decoder_has_video_packets(&context->decoder_p, handle);
+    i32 has_video_frames  = mk_decoder_has_video_frames(&context->decoder_p, handle);
+
+    if (has_video_packets <= 0 || has_video_frames <= 0) {
+        data                  = mk_malloc(sizeof(*data));
+        data->decoder_p       = &context->decoder_p;
+        data->decoder.slot_id = handle->slot_id;
+
+        data->complete_signal = mk_malloc(sizeof(*data->complete_signal));
+        if (mk_cond_init(data->complete_signal) < 0) {
+            goto cleanup;
         }
-    );
+
+        if (mk_mutex_init(&mutex) < 0) {
+            goto cleanup;
+        }
+    }
+
+    if (has_video_packets <= 0) {
+        mk_thread_pool_queue_job(&context->pool, mk__context_demux, data);
+
+        mk_mutex_lock(&mutex);
+        mk_cond_wait(data->complete_signal, &mutex);
+        mk_mutex_unlock(&mutex);
+    }
+
+    if (has_video_frames <= 0) {
+        mk_thread_pool_queue_job(&context->pool, mk__context_decode_video, data);
+
+        mk_mutex_lock(&mutex);
+        mk_cond_wait(data->complete_signal, &mutex);
+        mk_mutex_unlock(&mutex);
+    }
+
+cleanup:
+    if (data) {
+        if (data->complete_signal) {
+            mk_cond_destroy(data->complete_signal);
+            mk_free(data->complete_signal);
+        }
+        mk_free(data);
+        mk_mutex_destroy(&mutex);
+    }
+
+    MK_LOG_DEBUG("Ready to get frame");
 
     return 0;
 }

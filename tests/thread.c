@@ -1,10 +1,9 @@
-#include "../src/mutex.h"
-#include "../src/thread.h"
+#include "../src/maker_internal.h"
 #include <stdio.h>
 #include <unistd.h>
 
 struct {
-    int value;
+    int     value;
     MKMutex mutex;
 } state;
 
@@ -32,14 +31,14 @@ int main(int argc, char* argv[])
     int ret;
     int result;
     state.value = 10;
-    ret = mk_mutex_init(&state.mutex);
+    ret         = mk_mutex_init(&state.mutex);
     if (ret != 0) {
         return ret;
     }
 
     MKThread thread = {
         .name = "thread_a",
-        .fn = thread_a,
+        .fn   = thread_a,
     };
     ret = mk_thread_init(&thread);
     if (ret != 0) {

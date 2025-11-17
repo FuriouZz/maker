@@ -99,7 +99,6 @@ cat > config.make <<EOF
 .SUFFIXES:
 
 PROFILE?=debug
-CWD=$CWD
 
 SOURCE_DIR=$CWD/src
 BUILD_DIR=$BUILD_DIR

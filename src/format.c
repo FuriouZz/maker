@@ -1,5 +1,4 @@
-#include "format.h"
-#include "libavutil/pixfmt.h"
+#include "maker_internal.h"
 
 enum AVPixelFormat mk_format_to_av_pixel_format(MKPixelFormat px_fmt)
 {

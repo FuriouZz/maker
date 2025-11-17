@@ -1,9 +1,6 @@
-#include "clock.h"
-#include "util.h"
-#include <_time.h>
-#include <time.h>
+#include "maker_internal.h"
 
-int mk_clock_init(MKClock* clock)
+i32 mk_clock_init(MKClock* clock)
 {
     if (clock == NULL) {
         return -1;
@@ -21,13 +18,13 @@ void mk_clock_free(MKClock* clock)
     }
 }
 
-int mk_clock_start(MKClock* clock)
+i32 mk_clock_start(MKClock* clock)
 {
     if (clock == NULL) {
         return -1;
     }
 
-    int ret;
+    i32 ret;
 
     if (clock->pause_time == NULL) {
         ret = clock_gettime(CLOCK_MONOTONIC, clock->start_time);
@@ -55,17 +52,17 @@ int mk_clock_start(MKClock* clock)
     return 0;
 }
 
-int mk_clock_pause(MKClock* clock)
+i32 mk_clock_pause(MKClock* clock)
 {
     if (clock == NULL) {
         return -1;
     }
 
-    int ret;
+    i32 ret;
 
     if (clock->pause_time == NULL) {
         clock->pause_time = mk_malloc_clear(sizeof(struct timespec));
-        ret = clock_gettime(CLOCK_MONOTONIC, clock->pause_time);
+        ret               = clock_gettime(CLOCK_MONOTONIC, clock->pause_time);
         if (ret != 0) {
             return -1;
         };
@@ -74,13 +71,13 @@ int mk_clock_pause(MKClock* clock)
     return 0;
 }
 
-int mk_get_time(MKTime* time)
+i32 mk_get_time(MKTime* time)
 {
     if (time == NULL) {
         return -1;
     }
 
-    int ret = clock_gettime(CLOCK_MONOTONIC, time);
+    i32 ret = clock_gettime(CLOCK_MONOTONIC, time);
     if (ret != 0) {
         return -1;
     };

@@ -1,33 +1,29 @@
-// #include "../src/media_decoder.h"
-#include "../src/util.h"
-#include "maker/maker.h"
+#include "../src/maker_internal.h"
 #include <stdint.h>
 #include <stdio.h>
 
 #define MK_EXT_IMPL
 
-// #include "mk_ext.h"
-
 int main(void)
 {
-    int ret;
+    int     ret;
     MKMedia media = { 0 };
 
     mk_media_init(&media, &(MKMediaDesc) { .filename = "./tests/video.mp4" });
 
     MKTrack video_track = { 0 };
-    ret = mk_media_get_track_from_type(
+    ret                 = mk_media_get_track_from_type(
         &video_track, &media, MK_TRACK_TYPE_VIDEO
     );
     MK_ASSERT(ret == 0);
 
     MKImageData target = { 0 };
-    ret = mk_image_data_init(
+    ret                = mk_image_data_init(
         &target,
         &(MKImageDataDesc) {
-            .width = video_track.width,
-            .height = video_track.height,
-            .format = MK_PXFMT_RGBA,
+                           .width  = video_track.width,
+                           .height = video_track.height,
+                           .format = MK_PXFMT_RGBA,
         }
     );
     MK_ASSERT(ret == 0);

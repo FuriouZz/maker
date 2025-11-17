@@ -1,10 +1,6 @@
-#include "frame_queue.h"
-#include "util.h"
+#include "maker_internal.h"
 
-int mk_init_frame_queue(
-    MKFrameQueue* queue, MKPacketQueue* packet_queue, int frame_count,
-    int keep_last
-)
+i32 mk_frame_queue_init(MKFrameQueue* queue, MKPacketQueue* packet_queue, i32 frame_count, boolean keep_last)
 {
     int status;
 
@@ -18,8 +14,8 @@ int mk_init_frame_queue(
         return status;
     }
     queue->max_frame_count = FFMIN(frame_count, FRAME_QUEUE_SIZE);
-    queue->keep_last_frame = !!keep_last;
-    queue->packet_queue = packet_queue;
+    queue->keep_last_frame = keep_last == TRUE;
+    queue->packet_queue    = packet_queue;
 
     int i;
     for (i = 0; i < queue->max_frame_count; i++) {
@@ -33,15 +29,17 @@ int mk_init_frame_queue(
     return 0;
 }
 
-_MK_PRIVATE
-void mk_unref_frame(MKFrameQueueItem* item) { av_frame_unref(item->frame); }
-
-void mk_uninit_frame_queue(MKFrameQueue* queue)
+MK_PRIVATE void mk_frame_queue_unref_frame(MKFrameQueueItem* item)
 {
-    int i;
+    av_frame_unref(item->frame);
+}
+
+void mk_frame_queue_uninit(MKFrameQueue* queue)
+{
+    i32 i;
     for (i = 0; i < queue->max_frame_count; i++) {
         MKFrameQueueItem item = queue->items[i];
-        mk_unref_frame(&item);
+        mk_frame_queue_unref_frame(&item);
         av_frame_free(&item.frame);
     }
     queue->packet_queue = NULL;
@@ -49,38 +47,38 @@ void mk_uninit_frame_queue(MKFrameQueue* queue)
     mk_cond_destroy(&queue->update_signal);
 }
 
-void mk_trigger_frame_queue_changes(MKFrameQueue* queue)
+void mk_frame_queue_trigger_changes(MKFrameQueue* queue)
 {
     mk_mutex_lock(&queue->mutex);
     mk_cond_signal(&queue->update_signal);
     mk_mutex_unlock(&queue->mutex);
 }
 
-MKFrameQueueItem* mk_peek_frame(MKFrameQueue* queue)
+MKFrameQueueItem* mk_frame_queue_peek(MKFrameQueue* queue)
 {
     return &queue->items
                 [(queue->read_index + queue->is_read_index_shown)
                  % queue->max_frame_count];
 }
 
-MKFrameQueueItem* mk_peek_next_frame(MKFrameQueue* queue)
+MKFrameQueueItem* mk_frame_queue_peek_next(MKFrameQueue* queue)
 {
     return &queue->items
                 [(queue->read_index + queue->is_read_index_shown + 1)
                  % queue->max_frame_count];
 }
 
-MKFrameQueueItem* mk_peek_last_frame(MKFrameQueue* queue)
+MKFrameQueueItem* mk_frame_queue_peek_last(MKFrameQueue* queue)
 {
     return &queue->items[queue->read_index];
 }
 
-MKFrameQueueItem* mk_peek_readable_frame(MKFrameQueue* queue)
+MKFrameQueueItem* mk_frame_queue_peek_readable(MKFrameQueue* queue)
 {
     /* wait until we have a readable a new frame */
     mk_mutex_lock(&queue->mutex);
     while (queue->frame_count - queue->is_read_index_shown <= 0
-           && queue->packet_queue->is_aborted == 0) {
+           && queue->packet_queue->is_aborted == FALSE) {
         mk_cond_wait(&queue->update_signal, &queue->mutex);
     }
     mk_mutex_unlock(&queue->mutex);
@@ -94,12 +92,12 @@ MKFrameQueueItem* mk_peek_readable_frame(MKFrameQueue* queue)
                  % queue->max_frame_count];
 }
 
-MKFrameQueueItem* mk_peek_writable_frame(MKFrameQueue* queue)
+MKFrameQueueItem* mk_frame_queue_peek_writable(MKFrameQueue* queue)
 {
     /* wait until we have space to put a new frame */
     mk_mutex_lock(&queue->mutex);
     while (queue->frame_count >= queue->max_frame_count
-           && queue->packet_queue->is_aborted == 0) {
+           && queue->packet_queue->is_aborted == FALSE) {
         mk_cond_wait(&queue->update_signal, &queue->mutex);
     }
     mk_mutex_unlock(&queue->mutex);
@@ -111,7 +109,7 @@ MKFrameQueueItem* mk_peek_writable_frame(MKFrameQueue* queue)
     return &queue->items[queue->write_index % queue->max_frame_count];
 }
 
-void mk_push_writable_frame(MKFrameQueue* queue)
+void mk_frame_queue_push_writable(MKFrameQueue* queue)
 {
     queue->write_index++;
     if (queue->write_index == queue->max_frame_count) {
@@ -123,14 +121,14 @@ void mk_push_writable_frame(MKFrameQueue* queue)
     mk_mutex_unlock(&queue->mutex);
 }
 
-void mk_drop_frame(MKFrameQueue* queue)
+void mk_frame_queue_drop(MKFrameQueue* queue)
 {
-    if (queue->keep_last_frame && queue->is_read_index_shown == 0) {
-        queue->is_read_index_shown = 1;
+    if (queue->keep_last_frame && queue->is_read_index_shown == FALSE) {
+        queue->is_read_index_shown = TRUE;
         return;
     }
 
-    mk_unref_frame(&queue->items[queue->read_index]);
+    mk_frame_queue_unref_frame(&queue->items[queue->read_index]);
 
     queue->read_index++;
     if (queue->read_index == queue->max_frame_count) {
@@ -142,12 +140,12 @@ void mk_drop_frame(MKFrameQueue* queue)
     mk_mutex_unlock(&queue->mutex);
 }
 
-int mk_remaining_frame_count(MKFrameQueue* queue)
+i32 mk_frame_queue_remaining_frame_count(MKFrameQueue* queue)
 {
     return queue->frame_count - queue->is_read_index_shown;
 }
 
-// int64_t mk_frame_queue_get_last_shown_position(MKFrameQueue* queue)
+// int64 mk_frame_queue_get_last_shown_position(MKFrameQueue* queue)
 // {
 //     MKFrameQueueItem* item = &queue->items[queue->read_index];
 //     if (queue->is_read_index_shown

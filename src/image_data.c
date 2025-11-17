@@ -1,8 +1,5 @@
-#include "format.h"
 #include "libavutil/imgutils.h"
-#include "maker/maker.h"
-#include "util.h"
-#include <stdio.h>
+#include "maker_internal.h"
 
 int mk_image_data_init(MKImageData* data, MKImageDataDesc* desc)
 {
@@ -26,12 +23,12 @@ int mk_image_data_init(MKImageData* data, MKImageDataDesc* desc)
         return -1;
     }
 
-    data->buffer = buffer;
+    data->buffer      = buffer;
     data->buffer_size = buffer_size;
-    data->format = desc->format;
-    data->width = desc->width;
-    data->height = desc->height;
-    data->is_valid = 1;
+    data->format      = desc->format;
+    data->width       = desc->width;
+    data->height      = desc->height;
+    data->is_valid    = 1;
 
     return 0;
 }
@@ -41,22 +38,22 @@ void mk_image_data_destroy(MKImageData* data)
     if (data != NULL) {
         mk_free(data->buffer);
         data->buffer_size = 0;
-        data->width = -1;
-        data->height = -1;
-        data->format = -1;
-        data->is_valid = 0;
+        data->width       = -1;
+        data->height      = -1;
+        data->format      = -1;
+        data->is_valid    = 0;
     }
 }
 
 void mk_image_data_save_pgm(MKImageData* target, char* output)
 {
     FILE* f;
-    int i;
+    int   i;
     f = fopen(output, "wb");
     fprintf(f, "P5\n%d %d\n%d\n", target->width, target->height, 255);
 
-    int item_size = sizeof(uint8_t);
-    int size = target->width * target->height * item_size;
+    int     item_size = sizeof(uint8_t);
+    int     size      = target->width * target->height * item_size;
     uint8_t pixel;
 
     for (i = 0; i < size; i++) {
@@ -81,12 +78,12 @@ void mk_image_data_save_pgm(MKImageData* target, char* output)
 void mk_image_data_save_ppm(MKImageData* target, char* output)
 {
     FILE* f;
-    int i;
+    int   i;
     f = fopen(output, "wb");
     fprintf(f, "P6\n%d %d\n%d\n", target->width, target->height, 255);
 
     int item_size = sizeof(uint8_t);
-    int size = target->width * target->height * item_size;
+    int size      = target->width * target->height * item_size;
     for (i = 0; i < size; i++) {
         fwrite(&(target->buffer[i * 4]), item_size, 3, f);
     }

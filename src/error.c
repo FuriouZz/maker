@@ -1,10 +1,6 @@
-#include "error.h"
-#include "util.h"
-#include <_abort.h>
-#include <stdio.h>
-#include <string.h>
+#include "maker_internal.h"
 
-void mk_log(uint32_t code, char* message, uint32_t line, char* filename)
+void mk_log(u32 code, char* message, u32 line, char* filename)
 {
     char* code_string = NULL;
 
@@ -17,7 +13,7 @@ void mk_log(uint32_t code, char* message, uint32_t line, char* filename)
     } else if (code == 4) {
         code_string = "panic";
     } else {
-        code_string = "log";
+        code_string = "debug";
     }
 
     if (filename) {

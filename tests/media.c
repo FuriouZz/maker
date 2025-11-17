@@ -1,5 +1,4 @@
-#include "../src/util.h"
-#include "maker/maker.h"
+#include "../src/maker_internal.h"
 #include <stdio.h>
 #include <unistd.h>
 

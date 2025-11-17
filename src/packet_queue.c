@@ -1,10 +1,8 @@
-#include "packet_queue.h"
-#include "util.h"
-#include <stdio.h>
+#include "maker_internal.h"
 
-int mk_init_packet_queue(MKPacketQueue* queue)
+i32 mk_packet_queue_init(MKPacketQueue* queue)
 {
-    int status;
+    i32 status;
     status = mk_mutex_init(&queue->mutex);
     if (status != 0) {
         return -1;
@@ -17,11 +15,11 @@ int mk_init_packet_queue(MKPacketQueue* queue)
 
     queue->items
         = av_fifo_alloc2(8, sizeof(MKPacketQueueItem), AV_FIFO_FLAG_AUTO_GROW);
-    queue->is_aborted = 1;
+    queue->is_aborted = TRUE;
     return 0;
 }
 
-void mk_flush_packet_queue(MKPacketQueue* queue)
+void mk_packet_queue_flush(MKPacketQueue* queue)
 {
     MKPacketQueueItem pkt;
     mk_mutex_lock(&queue->mutex);
@@ -29,37 +27,37 @@ void mk_flush_packet_queue(MKPacketQueue* queue)
         av_packet_free(&pkt.packet);
     }
     queue->packet_count = 0;
-    queue->duration = 0;
-    queue->byte_size = 0;
+    queue->duration     = 0;
+    queue->byte_size    = 0;
     queue->serial++;
     mk_mutex_unlock(&queue->mutex);
 }
 
-void mk_uninit_packet_queue(MKPacketQueue* queue)
+void mk_packet_queue_uninit(MKPacketQueue* queue)
 {
-    mk_flush_packet_queue(queue);
+    mk_packet_queue_flush(queue);
     av_fifo_freep2(&queue->items);
     mk_mutex_destroy(&queue->mutex);
     mk_cond_destroy(&queue->new_item_signal);
 }
 
-void mk_start_packet_queue(MKPacketQueue* queue)
+void mk_packet_queue_start(MKPacketQueue* queue)
 {
     mk_mutex_lock(&queue->mutex);
-    queue->is_aborted = 0;
+    queue->is_aborted = FALSE;
     queue->serial++;
     mk_mutex_unlock(&queue->mutex);
 }
 
-void mk_abort_packet_queue(MKPacketQueue* queue)
+void mk_packet_queue_abort(MKPacketQueue* queue)
 {
     mk_mutex_lock(&queue->mutex);
-    queue->is_aborted = 1;
+    queue->is_aborted = TRUE;
     mk_cond_signal(&queue->new_item_signal);
     mk_mutex_unlock(&queue->mutex);
 }
 
-_MK_PRIVATE int
+MK_PRIVATE int
 mk_packet_queue_put_private(MKPacketQueue* queue, AVPacket* packet)
 {
     MKPacketQueueItem item;
@@ -70,7 +68,7 @@ mk_packet_queue_put_private(MKPacketQueue* queue, AVPacket* packet)
     item.packet = packet;
     item.serial = queue->serial;
 
-    int ret;
+    i32 ret;
 
     ret = av_fifo_write(queue->items, &item, 1);
     if (ret < 0) {
@@ -86,15 +84,14 @@ mk_packet_queue_put_private(MKPacketQueue* queue, AVPacket* packet)
     return ret;
 }
 
-int mk_put_packet(MKPacketQueue* queue, AVPacket* packet)
+i32 mk_packet_queue_put(MKPacketQueue* queue, AVPacket* packet)
 {
-    int ret;
+    i32       ret;
     AVPacket* tmp = av_packet_alloc();
     if (!tmp) {
         av_packet_unref(packet);
         return -1;
     }
-
     av_packet_move_ref(tmp, packet);
 
     mk_mutex_lock(&queue->mutex);
@@ -108,11 +105,11 @@ int mk_put_packet(MKPacketQueue* queue, AVPacket* packet)
     return ret;
 }
 
-int mk_get_packet_queue(
-    MKPacketQueue* queue, AVPacket* packet, int should_block, int* serial
+i32 mk_packet_queue_get(
+    MKPacketQueue* queue, AVPacket* packet, i32 should_block, i32* serial
 )
 {
-    int ret;
+    i32               ret;
     MKPacketQueueItem item;
 
     mk_mutex_lock(&queue->mutex);

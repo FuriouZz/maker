@@ -1,12 +1,11 @@
-#include "../src/util.h"
-#include "maker/maker.h"
+#include "../src/maker_internal.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 
 int main(void)
 {
-    int status;
+    int     status;
     MKMedia media = { 0 };
 
     status = mk_media_init(
@@ -15,16 +14,16 @@ int main(void)
     MK_ASSERT(status == 0);
 
     MKTrack video_track = { 0 };
-    status = mk_media_get_track_from_type(
+    status              = mk_media_get_track_from_type(
         &video_track, &media, MK_TRACK_TYPE_VIDEO
     );
     MK_ASSERT(status == 0);
 
     MKContext context = { 0 };
-    status = mk_context_create(
+    status            = mk_context_create(
         &context,
         &(MKContextDesc) {
-            .media = &media,
+                       .media = &media,
         }
     );
     MK_ASSERT(status == 0);

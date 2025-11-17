@@ -1,5 +1,4 @@
-#include "libavutil/avutil.h"
-#include "track.h"
+#include "maker_internal.h"
 
 MKTrackType mk_tracktype_from_avmediatype(enum AVMediaType type)
 {

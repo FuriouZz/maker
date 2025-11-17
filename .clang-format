@@ -7,10 +7,11 @@ IndentWidth: 4
 # ColumnLimit: 80
 AlignConsecutiveDeclarations:
   Enabled: true
-  AcrossEmptyLines: true
+  AcrossEmptyLines: false
   AcrossComments: true
   AlignCompound: false
   AlignFunctionPointers: false
   PadOperators: false
 AlignConsecutiveAssignments:
   Enabled: true
+AllowShortIfStatementsOnASingleLine: true

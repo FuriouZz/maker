@@ -1,10 +1,4 @@
-#include "libavformat/avformat.h"
-#include "libavutil/avutil.h"
-#include "libavutil/error.h"
-#include "maker/maker.h"
-#include "media.h"
-#include "track.h"
-#include "util.h"
+#include "maker_internal.h"
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
@@ -45,10 +39,10 @@ int mk_media_init(MKMedia* media, MKMediaDesc* desc)
         NULL, 0
     );
 
-    media->filename = desc->filename;
-    media->context = mk_malloc_clear(sizeof(MKMediaContext));
+    media->filename        = desc->filename;
+    media->context         = mk_malloc_clear(sizeof(MKMediaContext));
     media->context->format = format;
-    media->is_initialized = 1;
+    media->is_initialized  = 1;
 
     return 0;
 }
@@ -64,7 +58,7 @@ unsigned int mk_media_number_of_tracks(MKMedia* media)
 {
     MK_ASSERT(media);
     unsigned int count = 0;
-    int i;
+    int          i;
     for (i = 0; i < MK_TRACK_TYPE_COUNT; i++) {
         if (media->streams[i] > -1) {
             count++;
@@ -97,13 +91,13 @@ int mk_media_get_track_from_type(
         return -1;
     }
 
-    AVStream* stream = media->context->format->streams[index];
+    AVStream*          stream = media->context->format->streams[index];
     AVCodecParameters* params = stream->codecpar;
 
     track->stream_index = index;
 
     if (type == MK_TRACK_TYPE_VIDEO) {
-        track->width = params->width;
+        track->width  = params->width;
         track->height = params->height;
         track->format = params->format;
     }
