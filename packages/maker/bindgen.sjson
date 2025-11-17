@@ -1,0 +1,17 @@
+inputs = [
+	"src/include/maker.h"
+]
+
+imports_file = "./imports.odin"
+
+output_folder = "bindings/maker"
+
+package_name = "maker"
+
+remove_type_prefix = "Maker"
+remove_function_prefix = "maker_"
+
+struct_field_overrides = {
+	"MakerImageData.is_valid": "bool",
+	"MakerDecoderOptions.use_threads": "bool"
+}

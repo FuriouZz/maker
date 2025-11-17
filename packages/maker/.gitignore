@@ -1,0 +1,10 @@
+.DS_Store
+target
+compile_commands.json
+config.make
+tmp
+tests/tmp
+.cache
+vendors
+cscope.files
+cscope.out

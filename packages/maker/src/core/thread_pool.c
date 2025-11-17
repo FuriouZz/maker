@@ -1,0 +1,204 @@
+#include "maker_internal.h"
+#include <pthread.h>
+#include <stdint.h>
+
+#define _GNU_SOURCE
+#include <sys/types.h>
+#include <unistd.h>
+
+static MakerStatus maker__can_read_job(AVFifo* fifo, MakerThreadPoolJob* job, MakerMutex* mutex, MakerCond* signal, bool* is_aborted)
+{
+    MakerStatus status = MAKER_STATUS_ERROR;
+
+    maker_mutex_lock(mutex);
+    for (;;) {
+        if (*is_aborted == TRUE) {
+            break;
+        }
+
+        if (av_fifo_can_read(fifo) > 0) {
+            av_fifo_read(fifo, job, 1);
+            status = MAKER_STATUS_OK;
+            break;
+        }
+
+        maker_cond_wait(signal, mutex);
+    }
+    maker_mutex_unlock(mutex);
+
+    return status;
+}
+
+static MakerStatus maker__thread_worker(void* data)
+{
+    MakerThreadPoolContext* ctx = data;
+    MakerThreadPoolJob      job = {
+             .data     = NULL,
+             .callback = NULL,
+    };
+
+    for (;;) {
+        if (ctx->is_aborted == TRUE) {
+            MAKER_LOG_INFO("job aborted");
+            break;
+        }
+
+        MAKER_LOG_INFO("waiting for job");
+        if (maker__can_read_job(ctx->job_queue, &job, &ctx->lock, &ctx->new_job_signal, &ctx->is_aborted) == MAKER_STATUS_OK) {
+            MAKER_LOG_INFO("job running");
+            if (job.callback == NULL) {
+                MAKER_LOG_WARN("Invalid worker");
+            } else {
+                job.callback(job.data);
+            }
+
+            job.callback = NULL;
+            job.data     = NULL;
+            MAKER_LOG_INFO("job completed");
+        }
+    }
+
+    job.callback = NULL;
+    job.data     = NULL;
+
+    return MAKER_STATUS_OK;
+}
+
+MakerThreadPool* maker_thread_pool_alloc(void)
+{
+    return maker_malloc_clear(sizeof(MakerThreadPool));
+}
+
+void maker_thread_pool_dealloc(MakerThreadPool* pool)
+{
+    if (pool != NULL) {
+        maker_free(pool);
+    }
+}
+
+MakerStatus maker_thread_pool_init(MakerThreadPool* pool, usize thread_count)
+{
+    MAKER_CHECK(pool);
+
+    maker_clear(pool, sizeof(*pool));
+    pool->threads = NULL;
+
+    MakerThreadPoolContext* context = &pool->context;
+    maker_clear(context, sizeof(*context));
+    context->is_aborted = FALSE;
+    context->job_queue  = NULL;
+
+    pool->threads = maker_malloc_clear(sizeof(MakerThread) * thread_count);
+    if (pool->threads == NULL) {
+        MAKER_OUT_OF_MEMORY;
+        goto error_end;
+    }
+
+    context->job_queue = av_fifo_alloc2(thread_count, sizeof(MakerThreadPoolJob), AV_FIFO_FLAG_AUTO_GROW);
+    if (context->job_queue == NULL) {
+        MAKER_OUT_OF_MEMORY;
+        goto cleanup_thread_pool;
+    }
+
+    if (maker_cond_init(&context->new_job_signal) != MAKER_STATUS_OK) {
+        goto cleanup_job_queue;
+    }
+
+    if (maker_mutex_init(&context->lock) != MAKER_STATUS_OK) {
+        goto cleanup_cond;
+    }
+
+    for (usize i = 0; i < thread_count; i++) {
+        MakerThread* thread = &pool->threads[i];
+        thread->callback    = maker__thread_worker;
+        thread->userdata    = context;
+        if (maker_thread_init(thread) != 0) {
+            goto cleanup_threads;
+        }
+    }
+
+    pool->count = thread_count;
+
+    return MAKER_STATUS_OK;
+
+cleanup_threads:
+    context->is_aborted = TRUE;
+    maker_cond_broadcast(&context->new_job_signal);
+    for (usize i = 0; i < thread_count; i++) {
+        MakerThread* thread = &pool->threads[i];
+        maker_thread_wait(thread);
+    }
+
+    maker_mutex_uninit(&context->lock);
+
+cleanup_cond:
+    maker_cond_uninit(&context->new_job_signal);
+
+cleanup_job_queue:
+    av_fifo_freep2(&context->job_queue);
+
+cleanup_thread_pool:
+    maker_free(pool->threads);
+
+error_end:
+    return MAKER_STATUS_ERROR;
+}
+
+void maker_thread_pool_uninit(MakerThreadPool* pool)
+{
+    if (pool == NULL) return;
+
+    pool->context.is_aborted = TRUE;
+    maker_cond_broadcast(&pool->context.new_job_signal);
+
+    for (usize i = 0; i < pool->count; i++) {
+        MakerThread* thread = &pool->threads[i];
+        maker_thread_wait(thread);
+    }
+
+    if (pool->context.job_queue != NULL) {
+        av_fifo_freep2(&pool->context.job_queue);
+        pool->context.job_queue = NULL;
+    }
+
+    if (pool->threads != NULL) {
+        maker_free(pool->threads);
+        pool->threads = NULL;
+    }
+}
+
+MakerStatus maker_thread_pool_queue_job(MakerThreadPool* pool, MakerStatus (*user_job)(void* data), void* user_data)
+{
+    MAKER_CHECK(pool);
+    MAKER_CHECK(user_job);
+
+    i32 count = av_fifo_can_write(pool->context.job_queue);
+    if (count == 0) {
+        MAKER_LOG_INFO("No job available");
+        return MAKER_STATUS_BUSY;
+    }
+
+    if (av_fifo_write(
+            pool->context.job_queue,
+            &(MakerThreadPoolJob) {
+                .data     = user_data,
+                .callback = user_job,
+
+            },
+            1
+        )
+        != 0) {
+        MAKER_LOG_INFO("Failed to queue job.");
+        return MAKER_STATUS_ERROR;
+    }
+
+    maker_cond_broadcast(&pool->context.new_job_signal);
+
+    return MAKER_STATUS_OK;
+}
+
+i32 maker_thread_pool_job_count(MakerThreadPool* pool)
+{
+    MAKER_CHECK(pool);
+    return av_fifo_can_read(pool->context.job_queue);
+}
