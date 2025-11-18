@@ -1,4 +1,3 @@
-#include "maker.h"
 #include "maker_internal.h"
 
 MakerVideoConverter* maker_video_converter_alloc(void)
@@ -67,7 +66,7 @@ void maker_video_converter_uninit(MakerVideoConverter* converter)
     sws_freeContext(converter->sws_context);
 }
 
-MakerStatus maker_video_converter_yuv2rgba(MakerVideoConverter* converter, MakerImageData* target, AVFrame* src_frame)
+MakerStatus maker_video_converter_yuv2rgba(MakerVideoConverter* converter, MakerVideoFrame* target, AVFrame* src_frame)
 {
     MAKER_CHECK(converter);
     MAKER_CHECK(target);

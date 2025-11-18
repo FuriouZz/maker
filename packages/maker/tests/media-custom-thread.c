@@ -5,11 +5,10 @@
 
 MakerThreadPool pool = { 0 };
 
-MakerStatus create_task(MakerStatus (*task)(MakerDecoder* decoder), MakerDecoder* decoder)
+void create_task(MakerStatus (*task)(MakerDecoder* decoder), MakerDecoder* decoder)
 {
     printf("Create task\n");
     maker_thread_pool_queue_job(&pool, task, decoder);
-    return MAKER_STATUS_OK;
 }
 
 int main(void)
@@ -21,9 +20,9 @@ int main(void)
     MakerMedia*   media   = maker_media_open("./tests/video.mp4");
     MakerDecoder* decoder = maker_decoder_alloc(
         "./tests/video.mp4",
-        &(MakerDecoderOptions) {
-            .use_threads   = 1,
-            .create_thread = create_task,
+        (MakerDecoderDesc) {
+            .use_threads = 1,
+            .thread_cb   = create_task,
         }
     );
 
@@ -32,8 +31,8 @@ int main(void)
 
     printf("video=%d audio=%d\n", video_stream_index, audio_stream_index);
 
-    MakerImageData* image = maker_image_data_alloc(
-        &(MakerImageDataDesc) {
+    MakerVideoFrame* image = maker_video_frame_alloc(
+        (MakerVideoFrameDesc) {
             .format = MAKER_PIXEL_FORMAT_RGBA,
             .width  = media->video_width,
             .height = media->video_height,
@@ -46,19 +45,19 @@ int main(void)
     sleep(1);
     printf("sleep complete\n");
 
-    maker_decoder_get_frame(decoder, image);
+    maker_decoder_get_video_frame(decoder, image);
 
     printf("Save pgm\n");
-    maker_image_data_save_pgm(image, "tmp/image.pgm");
+    maker_video_frame_save_pgm(image, "tmp/image.pgm");
 
     printf("Save ppm\n");
-    maker_image_data_save_ppm(image, "tmp/image.ppm");
+    maker_video_frame_save_ppm(image, "tmp/image.ppm");
 
     printf("stop decoder\n");
     maker_decoder_stop(decoder);
 
     printf("free image data\n");
-    maker_image_data_free(image);
+    maker_video_frame_free(image);
     printf("free decoder\n");
     maker_decoder_free(decoder);
     maker_media_free(media);

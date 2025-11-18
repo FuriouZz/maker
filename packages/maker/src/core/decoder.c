@@ -1,11 +1,12 @@
 #include "maker_internal.h"
+#include <stdio.h>
 
 static MakerStatus maker__decoder_decode(MakerDecoder* user_decoder)
 {
     MAKER_CHECK(user_decoder);
 
     MakerDecoderInternal* decoder = (MakerDecoderInternal*)user_decoder;
-    if (decoder->is_single_threaded == FALSE) {
+    if (decoder->desc.use_threads == FALSE) {
         return MAKER_STATUS_OK;
     }
 
@@ -25,7 +26,7 @@ static MakerStatus maker__decoder_decode(MakerDecoder* user_decoder)
     return MAKER_STATUS_OK;
 }
 
-MakerDecoder* maker_decoder_alloc(char* url, MakerDecoderOptions* options)
+MakerDecoder* maker_decoder_alloc(char* url, MakerDecoderDesc desc)
 {
     MakerDecoderInternal* decoder = maker_malloc_clear(sizeof(*decoder));
     if (decoder == NULL) {
@@ -33,20 +34,7 @@ MakerDecoder* maker_decoder_alloc(char* url, MakerDecoderOptions* options)
         goto fail;
     }
 
-    decoder->create_thread      = NULL;
-    decoder->thread_pool        = NULL;
-    decoder->media              = NULL;
-    decoder->is_single_threaded = TRUE;
-
-    if (options != NULL) {
-        if (options->use_threads == TRUE) {
-            decoder->is_single_threaded = FALSE;
-        }
-
-        if (options->create_thread != NULL) {
-            decoder->create_thread = options->create_thread;
-        }
-    }
+    decoder->desc = desc;
 
     decoder->media = maker_media_open(url);
     if (decoder->media == NULL) {
@@ -64,7 +52,7 @@ MakerDecoder* maker_decoder_alloc(char* url, MakerDecoderOptions* options)
         goto cleanup_video_decoder;
     }
 
-    if (decoder->create_thread == NULL && decoder->is_single_threaded == FALSE) {
+    if (decoder->desc.thread_cb == NULL && decoder->desc.use_threads == TRUE) {
         decoder->thread_pool = maker_thread_pool_alloc();
         if (decoder->thread_pool == NULL) {
             goto cleanup_demuxer;
@@ -116,11 +104,11 @@ MakerStatus maker_decoder_start(MakerDecoder* user_decoder)
     MAKER_CHECK(user_decoder);
 
     MakerDecoderInternal* decoder = (MakerDecoderInternal*)user_decoder;
-    if (decoder->is_single_threaded == TRUE) {
+    if (decoder->desc.use_threads == FALSE) {
         return MAKER_STATUS_OK;
     }
 
-    if (decoder->create_thread == NULL) {
+    if (decoder->desc.thread_cb == NULL) {
         maker_thread_pool_init(decoder->thread_pool, 2);
 
         if (maker_thread_pool_queue_job(decoder->thread_pool, maker_decoder_demux, decoder) != MAKER_STATUS_OK) {
@@ -131,8 +119,8 @@ MakerStatus maker_decoder_start(MakerDecoder* user_decoder)
             return MAKER_STATUS_ERROR;
         }
     } else {
-        decoder->create_thread(maker_decoder_demux, decoder);
-        decoder->create_thread(maker_decoder_decode_video, decoder);
+        decoder->desc.thread_cb(maker_decoder_demux, decoder);
+        decoder->desc.thread_cb(maker_decoder_decode_video, decoder);
     }
 
     return MAKER_STATUS_OK;
@@ -143,7 +131,7 @@ MakerStatus maker_decoder_stop(MakerDecoder* user_decoder)
     MAKER_CHECK(user_decoder);
 
     MakerDecoderInternal* decoder = (MakerDecoderInternal*)user_decoder;
-    if (decoder->is_single_threaded == TRUE) {
+    if (decoder->desc.use_threads == FALSE) {
         return MAKER_STATUS_OK;
     }
 
@@ -259,7 +247,7 @@ MakerStatus maker_decoder_stop(MakerDecoder* user_decoder)
 //     return MAKER_STATUS_OK;
 // }
 
-u32 maker_decoder_get_frame(MakerDecoder* decoder, MakerImageData* target)
+u32 maker_decoder_get_video_frame(MakerDecoder* decoder, MakerVideoFrame* target)
 {
     MAKER_CHECK(decoder);
     MAKER_CHECK(target);

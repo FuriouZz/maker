@@ -1,4 +1,3 @@
-#include "maker.h"
 #include "maker_internal.h"
 
 MakerStatus maker_packet_queue_init(MakerPacketQueue* queue)

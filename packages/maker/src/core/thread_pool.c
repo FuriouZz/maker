@@ -1,10 +1,4 @@
 #include "maker_internal.h"
-#include <pthread.h>
-#include <stdint.h>
-
-#define _GNU_SOURCE
-#include <sys/types.h>
-#include <unistd.h>
 
 static MakerStatus maker__can_read_job(AVFifo* fifo, MakerThreadPoolJob* job, MakerMutex* mutex, MakerCond* signal, bool* is_aborted)
 {

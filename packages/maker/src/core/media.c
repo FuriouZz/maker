@@ -1,3 +1,4 @@
+#include "maker.h"
 #include "maker_internal.h"
 
 MakerMedia* maker_media_open(char* url)
@@ -42,6 +43,7 @@ MakerMedia* maker_media_open(char* url)
         AVStream* stream    = format->streams[media->streams[MAKER_TRACK_TYPE_VIDEO]];
         media->video_width  = stream->codecpar->width;
         media->video_height = stream->codecpar->height;
+        media->video_format = maker_format_from_av_pixel_format(stream->codecpar->format);
     }
 
     return (MakerMedia*)media;

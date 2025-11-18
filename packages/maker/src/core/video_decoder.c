@@ -208,7 +208,7 @@ MakerStatus maker_video_decoder_stop(MakerVideoDecoder* video)
     return MAKER_STATUS_OK;
 }
 
-MakerStatus maker_video_decoder_yuv2rgb(MakerVideoDecoder* decoder, MakerImageData* target, AVFrame* src_frame)
+MakerStatus maker_video_decoder_yuv2rgb(MakerVideoDecoder* decoder, MakerVideoFrame* target, AVFrame* src_frame)
 {
     MAKER_CHECK(decoder);
     MAKER_CHECK(target);

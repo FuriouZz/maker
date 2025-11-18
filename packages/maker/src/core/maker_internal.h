@@ -202,10 +202,10 @@ extern i32         maker_packet_queue_get(MakerPacketQueue* queue, AVPacket* pac
 /* ---- media.c ----
  */
 typedef struct {
-    i32 streams[MAKER_TRACK_TYPE_COUNT];
-
-    unsigned int video_width;
-    unsigned int video_height;
+    i32              streams[MAKER_TRACK_TYPE_COUNT];
+    u32              video_width;
+    u32              video_height;
+    MakerPixelFormat video_format;
 
     /* hidden to user */
     AVFormatContext* format;
@@ -223,7 +223,7 @@ extern MakerVideoConverter* maker_video_converter_alloc(void);
 extern void                 maker_video_converter_free(MakerVideoConverter* converter);
 extern MakerStatus          maker_video_converter_init(MakerVideoConverter* converter, u32 width, u32 height, MakerPixelFormat src_format, MakerPixelFormat dst_format);
 extern void                 maker_video_converter_uninit(MakerVideoConverter* converter);
-extern MakerStatus          maker_video_converter_yuv2rgba(MakerVideoConverter* converter, MakerImageData* target, AVFrame* src_frame);
+extern MakerStatus          maker_video_converter_yuv2rgba(MakerVideoConverter* converter, MakerVideoFrame* target, AVFrame* src_frame);
 
 /* ---- video_decoder.c ----
  */
@@ -246,7 +246,7 @@ extern MakerStatus maker_video_decoder_init(MakerVideoDecoder* video, MakerMedia
 extern void        maker_video_decoder_uninit(MakerVideoDecoder* video);
 extern MakerStatus maker_video_decoder_start(MakerVideoDecoder* video, MakerVideoDecoderOptions* options);
 extern MakerStatus maker_video_decoder_stop(MakerVideoDecoder* video);
-extern MakerStatus maker_video_decoder_yuv2rgb(MakerVideoDecoder* decoder, MakerImageData* target, AVFrame* src_frame);
+extern MakerStatus maker_video_decoder_yuv2rgb(MakerVideoDecoder* decoder, MakerVideoFrame* target, AVFrame* src_frame);
 
 /* ---- demuxer.c ----
  */
@@ -277,9 +277,7 @@ typedef struct {
     MakerClock        clock;
     MakerMedia*       media;
     MakerThreadPool*  thread_pool;
-    MakerStatus (*create_thread)(MakerStatus (*task)(MakerDecoder*), MakerDecoder* user_decoder);
-    bool is_eof;
-    bool is_single_threaded;
+    MakerDecoderDesc  desc;
 } MakerDecoderInternal;
 
 typedef struct {

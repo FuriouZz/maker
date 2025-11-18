@@ -1,16 +1,14 @@
 #include "maker_internal.h"
 
-MakerImageData* maker_image_data_alloc(MakerImageDataDesc* desc)
+MakerVideoFrame* maker_video_frame_alloc(MakerVideoFrameDesc desc)
 {
-    MakerImageData* data = maker_malloc(sizeof(MakerImageData));
+    MakerVideoFrame* data = maker_malloc(sizeof(MakerVideoFrame));
     if (data == NULL) {
         MAKER_OUT_OF_MEMORY;
         return NULL;
     }
 
-    if (desc == NULL) return data;
-
-    if (maker_image_data_init(data, desc) != MAKER_STATUS_OK) {
+    if (maker_video_frame_init(data, desc) != MAKER_STATUS_OK) {
         maker_free(data);
         return NULL;
     }
@@ -18,21 +16,21 @@ MakerImageData* maker_image_data_alloc(MakerImageDataDesc* desc)
     return data;
 }
 
-void maker_image_data_free(MakerImageData* data)
+void maker_video_frame_free(MakerVideoFrame* data)
 {
     if (data == NULL) return;
 
-    maker_image_data_uninit(data);
+    maker_video_frame_uninit(data);
     maker_free(data);
 }
 
-MakerStatus maker_image_data_init(MakerImageData* data, MakerImageDataDesc* desc)
+MakerStatus maker_video_frame_init(MakerVideoFrame* data, MakerVideoFrameDesc desc)
 {
-    MAKER_CHECK(desc);
+    MAKER_CHECK(data);
 
-    maker_clear(data, sizeof(MakerImageData));
+    maker_clear(data, sizeof(MakerVideoFrame));
 
-    enum AVPixelFormat format = maker_format_to_av_pixel_format(desc->format);
+    enum AVPixelFormat format = maker_format_to_av_pixel_format(desc.format);
 
     if (format == AV_PIX_FMT_NONE) {
         data->is_valid = 0;
@@ -40,7 +38,7 @@ MakerStatus maker_image_data_init(MakerImageData* data, MakerImageDataDesc* desc
     }
 
     int buffer_size
-        = av_image_get_buffer_size(format, desc->width, desc->height, 1);
+        = av_image_get_buffer_size(format, desc.width, desc.height, 1);
 
     u8* buffer = maker_malloc_clear(buffer_size * sizeof(*buffer));
     if (!buffer) {
@@ -50,28 +48,25 @@ MakerStatus maker_image_data_init(MakerImageData* data, MakerImageDataDesc* desc
 
     data->buffer      = buffer;
     data->buffer_size = buffer_size;
-    data->format      = desc->format;
-    data->width       = desc->width;
-    data->height      = desc->height;
-    data->is_valid    = 1;
+    data->width       = desc.width;
+    data->height      = desc.height;
+    data->format      = desc.format;
+    data->is_valid    = TRUE;
 
     return 0;
 }
 
-void maker_image_data_uninit(MakerImageData* data)
+void maker_video_frame_uninit(MakerVideoFrame* data)
 {
     if (data == NULL) return;
 
     maker_free(data->buffer);
 
     data->buffer_size = 0;
-    data->width       = -1;
-    data->height      = -1;
-    data->format      = -1;
     data->is_valid    = FALSE;
 }
 
-void maker_image_data_save_pgm(MakerImageData* target, char* output)
+void maker_video_frame_save_pgm(MakerVideoFrame* target, char* output)
 {
     FILE* f;
     int   i;
@@ -101,7 +96,7 @@ void maker_image_data_save_pgm(MakerImageData* target, char* output)
     fclose(f);
 }
 
-void maker_image_data_save_ppm(MakerImageData* target, char* output)
+void maker_video_frame_save_ppm(MakerVideoFrame* target, char* output)
 {
     FILE* f;
     int   i;
