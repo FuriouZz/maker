@@ -18,7 +18,7 @@ TaskData :: struct {
 create_task :: proc "c" (
 	job: proc "c" (_: ^maker.Decoder) -> maker.Status,
 	decoder: ^maker.Decoder,
-) -> maker.Status {
+) {
 
 	context = runtime.default_context()
 
@@ -31,15 +31,13 @@ create_task :: proc "c" (
 			defer free(t)
 			t.job(t.decoder)
 		}, task)
-
-	return .OK
 }
 
 main :: proc() {
 	thread.pool_init(&pool, context.allocator, 2)
 	thread.pool_start(&pool)
 
-	input := cstring("../maker/tests/video.mp4")
+	input := cstring("../makerc/tests/video.mp4")
 	output := cstring("image.ppm")
 
 	media := maker.media_open(input)
@@ -47,15 +45,12 @@ main :: proc() {
 
 	fmt.println("Size =", media.video_width, "x", media.video_height)
 
-	image := maker.image_data_alloc(
-		&{width = media.video_width, height = media.video_height, format = .RGBA},
+	image := maker.video_frame_alloc(
+		{width = media.video_width, height = media.video_height, format = .RGBA},
 	)
-	defer maker.image_data_free(image)
+	defer maker.video_frame_free(image)
 
-	decoder := maker.decoder_alloc(
-		input,
-		&{use_threads = USE_THREADS, create_thread = create_task},
-	)
+	decoder := maker.decoder_alloc(input, {use_threads = USE_THREADS, thread_cb = create_task})
 	defer maker.decoder_free(decoder)
 
 	maker.decoder_start(decoder)
@@ -63,7 +58,7 @@ main :: proc() {
 
 	if USE_THREADS {time.sleep(time.Second * 2)}
 
-	maker.decoder_get_frame(decoder, image)
-	maker.image_data_save_ppm(image, output)
+	maker.decoder_get_video_frame(decoder, image)
+	maker.video_frame_save_ppm(image, output)
 }
 

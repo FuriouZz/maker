@@ -65,8 +65,8 @@ extern MakerVideoFrame* maker_video_frame_alloc(MakerVideoFrameDesc desc);
 extern void             maker_video_frame_free(MakerVideoFrame* data);
 extern MakerStatus      maker_video_frame_init(MakerVideoFrame* data, MakerVideoFrameDesc desc);
 extern void             maker_video_frame_uninit(MakerVideoFrame* data);
-extern void             maker_video_frame_save_pgm(MakerVideoFrame* target, char* output);
-extern void             maker_video_frame_save_ppm(MakerVideoFrame* target, char* output);
+extern MakerStatus      maker_video_frame_save_pgm(MakerVideoFrame* target, char* output);
+extern MakerStatus      maker_video_frame_save_ppm(MakerVideoFrame* target, char* output);
 
 extern MakerDecoder* maker_decoder_alloc(char* url, MakerDecoderDesc desc);
 extern void          maker_decoder_free(MakerDecoder* decoder);

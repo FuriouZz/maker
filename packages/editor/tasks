@@ -32,7 +32,7 @@ function _odin {
   target=${target:-$(_get_target)}
   output="target/debug"
 
-  collections="-collection:maker=../maker/bindings"
+  collections="-collection:maker=../makerc/bindings"
 
   mkdir -p target
   odin $command ./src -target=$target $collections $@

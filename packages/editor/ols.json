@@ -3,7 +3,7 @@
 	"collections": [
 		{
 			"name": "maker",
-			"path": "../maker/bindings"
+			"path": "../makerc/bindings"
 		}
 	],
 	"enable_semantic_tokens": false,

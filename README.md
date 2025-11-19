@@ -5,5 +5,5 @@
 The goal is to create a simple video editor with graphics animation.
 
 It is divided in two packages:
-- `packages/maker` provides functions to interact with ffmpeg easily
+- `packages/makerc` provides functions to interact with ffmpeg easily
 - `packages/editor` is a video editor using maker bindings

@@ -1,3 +1,4 @@
+#include "maker.h"
 #include "maker_internal.h"
 
 MakerVideoFrame* maker_video_frame_alloc(MakerVideoFrameDesc desc)
@@ -66,18 +67,21 @@ void maker_video_frame_uninit(MakerVideoFrame* data)
     data->is_valid    = FALSE;
 }
 
-void maker_video_frame_save_pgm(MakerVideoFrame* target, char* output)
+MakerStatus maker_video_frame_save_pgm(MakerVideoFrame* target, char* output)
 {
-    FILE* f;
-    int   i;
-    f = fopen(output, "wb");
+    MAKER_CHECK(target);
+    MAKER_CHECK(output);
+
+    FILE* f = fopen(output, "wb");
+    MAKER_CHECK(f);
+
     fprintf(f, "P5\n%d %d\n%d\n", target->width, target->height, 255);
 
-    int     item_size = sizeof(uint8_t);
-    int     size      = target->width * target->height * item_size;
-    uint8_t pixel;
+    i32 item_size = sizeof(u8);
+    i32 size      = target->width * target->height * item_size;
+    u8  pixel;
 
-    for (i = 0; i < size; i++) {
+    for (i32 i = 0; i < size; i++) {
 
         // https://mmuratarat.github.io/2020-05-13/rgb_to_grayscale_formulas
         // TODO: https://github.com/descampsa/yuv2rgb
@@ -94,19 +98,26 @@ void maker_video_frame_save_pgm(MakerVideoFrame* target, char* output)
         fwrite(&pixel, item_size, 1, f);
     }
     fclose(f);
+
+    return MAKER_STATUS_OK;
 }
 
-void maker_video_frame_save_ppm(MakerVideoFrame* target, char* output)
+MakerStatus maker_video_frame_save_ppm(MakerVideoFrame* target, char* output)
 {
-    FILE* f;
-    int   i;
-    f = fopen(output, "wb");
+    MAKER_CHECK(target);
+    MAKER_CHECK(output);
+
+    FILE* f = fopen(output, "wb");
+    MAKER_CHECK(f);
+
     fprintf(f, "P6\n%d %d\n%d\n", target->width, target->height, 255);
 
-    int item_size = sizeof(uint8_t);
-    int size      = target->width * target->height * item_size;
-    for (i = 0; i < size; i++) {
+    i32 item_size = sizeof(u8);
+    i32 size      = target->width * target->height * item_size;
+    for (i32 i = 0; i < size; i++) {
         fwrite(&(target->buffer[i * 4]), item_size, 3, f);
     }
     fclose(f);
+
+    return MAKER_STATUS_OK;
 }

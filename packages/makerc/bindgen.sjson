@@ -6,12 +6,12 @@ imports_file = "./imports.odin"
 
 output_folder = "bindings/maker"
 
-package_name = "maker"
+package_name = "makerc"
 
 remove_type_prefix = "Maker"
 remove_function_prefix = "maker_"
 
 struct_field_overrides = {
-	"MakerImageData.is_valid": "bool",
-	"MakerDecoderOptions.use_threads": "bool"
+	"MakerVideoFrame.is_valid": "bool",
+	"MakerDecoderDesc.use_threads": "bool"
 }
