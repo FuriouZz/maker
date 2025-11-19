@@ -9,13 +9,14 @@ endif
 
 CLIBS = \
 	-Lvendors/ffmpeg/build/lib \
-	-Wl,-rpath,/vendors/ffmpeg/build/lib \
+	-Wl,-rpath,vendors/ffmpeg/build/lib \
 	-lavutil -lswresample -lavcodec -lavformat -lswscale -lavfilter -lavdevice
 
-BUILD_CFLAGS = $(CFLAGS) \
+BUILD_CFLAGS = \
 	-std=c99 -Wall -Wextra -Werror -Wunused -pedantic -fPIC \
 	-Isrc/include \
-	-Ivendors/ffmpeg/build/include
+	-Ivendors/ffmpeg/build/include \
+	$(CFLAGS)
 
 MAKER_TARGET_DIR = target/$(PROFILE)
 MAKER_TARGET_NAME = maker
@@ -69,13 +70,12 @@ $(MAKER_TARGET_DIR)/objects/%.o: src/%.c Makefile $(MAKER_HEADERS) $(MAKER_LOCAL
 
 $(MAKER_TARGET): $(MAKER_TARGET_OBJECTS)
 	mkdir -p $(MAKER_TARGET_DIR)
-	$(CC) $(BUILD_CFLAGS) -shared -o $(shell pwd)/$@ $^ $(CLIBS)
+	$(CC) $(BUILD_CFLAGS) -shared -o $@ $^ $(CLIBS)
 
 $(MAKER_TARGET_DIR)/tests/%.o: tests/%.c $(MAKER_TARGET)
 	mkdir -p $(MAKER_TARGET_DIR)/tests
 	mkdir -p tmp
 	$(CC) $(BUILD_CFLAGS) -L$(MAKER_TARGET_DIR) -l$(MAKER_TARGET_NAME) -o $@ $^
-# $(CC) $(BUILD_CFLAGS) -o $@ $^
 
 ##@ Help commands
 help: ## Display this help

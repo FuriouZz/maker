@@ -34,9 +34,9 @@ function _odin {
 
   collections="-collection:maker=../makerc/bindings"
 
-  mkdir -p target
-  odin $command ./src -target=$target $collections $@
-  # odin $command ./src -out="$output/main-$target" -target=$target $collections $@
+  mkdir -p "$output"
+  cp ../makerc/bindings/maker/libmaker.dylib "$output/libmaker.dylib"
+  odin $command ./src -out="$output/main-$target" -target=$target $collections $@
 }
 
 function build {
