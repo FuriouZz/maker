@@ -27,7 +27,7 @@ MakerMedia* maker_media_open(char* url)
 
     media->format = format;
     media->url    = url;
-    memset(&media->streams, -1, MAKER_TRACK_TYPE_COUNT);
+    maker_memset(&media->streams, -1, MAKER_TRACK_TYPE_COUNT);
 
     media->streams[MAKER_TRACK_TYPE_VIDEO]
         = av_find_best_stream(format, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
@@ -61,6 +61,6 @@ void maker_media_free(MakerMedia* user_media)
     MakerMediaInternal* media = (MakerMediaInternal*)user_media;
 
     avformat_free_context(media->format);
-    memset(&media->streams, -1, MAKER_TRACK_TYPE_COUNT);
+    maker_memset(&media->streams, -1, MAKER_TRACK_TYPE_COUNT);
     maker_free(media);
 }

@@ -106,7 +106,7 @@ MakerStatus maker_cond_timedwait(MakerCond* signal, MakerMutex* mutex, i32 secon
 static void* maker__thread_run(void* data)
 {
     MakerThread* thread = (MakerThread*)data;
-    thread->status      = thread->callback(thread->userdata);
+    thread->status      = thread->callback(thread->user_data, thread->user_index);
     return NULL;
 }
 

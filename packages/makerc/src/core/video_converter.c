@@ -72,6 +72,7 @@ MakerStatus maker_video_converter_yuv2rgba(MakerVideoConverter* converter, Maker
     MAKER_CHECK(target);
 
     AVFrame* dst_frame = converter->frame;
+    target->is_valid   = FALSE;
 
     if (sws_scale(
             converter->sws_context, (const uint8_t* const*)src_frame->data,
@@ -92,6 +93,8 @@ MakerStatus maker_video_converter_yuv2rgba(MakerVideoConverter* converter, Maker
         MAKER_LOG_ERROR("Failed to copy image data\n");
         return MAKER_STATUS_ERROR;
     }
+
+    target->is_valid = TRUE;
 
     return MAKER_STATUS_OK;
 }

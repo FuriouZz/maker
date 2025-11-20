@@ -1,4 +1,5 @@
 #include "maker_internal.h"
+#include <stdio.h>
 
 static MakerStatus maker__can_read_job(AVFifo* fifo, MakerThreadPoolJob* job, MakerMutex* mutex, MakerCond* signal, bool* is_aborted)
 {
@@ -23,23 +24,20 @@ static MakerStatus maker__can_read_job(AVFifo* fifo, MakerThreadPoolJob* job, Ma
     return status;
 }
 
-static MakerStatus maker__thread_worker(void* data)
+static MakerStatus maker__thread_worker(void* user_data, u32 user_index)
 {
-    MakerThreadPoolContext* ctx = data;
-    MakerThreadPoolJob      job = {
-             .data     = NULL,
-             .callback = NULL,
-    };
+    MakerThreadPoolContext* ctx = user_data;
+    MakerThreadPoolJob      job = { 0 };
 
     for (;;) {
         if (ctx->is_aborted == TRUE) {
-            MAKER_LOG_INFO("job aborted");
+            MAKER_LOG_INFO(maker_format("job aborted (%d)", user_index));
             break;
         }
 
-        MAKER_LOG_INFO("waiting for job");
+        MAKER_LOG_INFO(maker_format("waiting for job (%d)", user_index));
         if (maker__can_read_job(ctx->job_queue, &job, &ctx->lock, &ctx->new_job_signal, &ctx->is_aborted) == MAKER_STATUS_OK) {
-            MAKER_LOG_INFO("job running");
+            MAKER_LOG_INFO(maker_format("job running (%d)", user_index));
             if (job.callback == NULL) {
                 MAKER_LOG_WARN("Invalid worker");
             } else {
@@ -48,7 +46,7 @@ static MakerStatus maker__thread_worker(void* data)
 
             job.callback = NULL;
             job.data     = NULL;
-            MAKER_LOG_INFO("job completed");
+            MAKER_LOG_INFO(maker_format("job running (%d)", user_index));
         }
     }
 
@@ -104,8 +102,10 @@ MakerStatus maker_thread_pool_init(MakerThreadPool* pool, usize thread_count)
 
     for (usize i = 0; i < thread_count; i++) {
         MakerThread* thread = &pool->threads[i];
-        thread->callback    = maker__thread_worker;
-        thread->userdata    = context;
+        maker_clear(thread, sizeof(*thread));
+        thread->callback   = maker__thread_worker;
+        thread->user_data  = context;
+        thread->user_index = i;
         if (maker_thread_init(thread) != 0) {
             goto cleanup_threads;
         }
@@ -161,7 +161,7 @@ void maker_thread_pool_uninit(MakerThreadPool* pool)
     }
 }
 
-MakerStatus maker_thread_pool_queue_job(MakerThreadPool* pool, MakerStatus (*user_job)(void* data), void* user_data)
+MakerStatus maker_thread_pool_queue_job(MakerThreadPool* pool, MakerStatus (*user_job)(void* user_data), void* user_data)
 {
     MAKER_CHECK(pool);
     MAKER_CHECK(user_job);
@@ -177,7 +177,6 @@ MakerStatus maker_thread_pool_queue_job(MakerThreadPool* pool, MakerStatus (*use
             &(MakerThreadPoolJob) {
                 .data     = user_data,
                 .callback = user_job,
-
             },
             1
         )

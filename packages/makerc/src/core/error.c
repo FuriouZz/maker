@@ -26,3 +26,14 @@ void maker_log(u32 code, char* message, u32 line, char* filename)
         abort();
     }
 }
+
+char buffer[256] = { 0 };
+
+char* maker_format(char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, 256, format, args);
+    va_end(args);
+    return buffer;
+}

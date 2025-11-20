@@ -1,6 +1,25 @@
 #ifndef MEDIA_DECODER_INTERNAL_H
 #define MEDIA_DECODER_INTERNAL_H
 
+/* ---- dependencies ----
+ */
+#include <pthread.h>
+#include <stdlib.h>
+#include <time.h>
+
+#include <libavcodec/avcodec.h>
+#include <libavcodec/packet.h>
+#include <libavformat/avformat.h>
+#include <libavutil/avutil.h>
+#include <libavutil/fifo.h>
+#include <libavutil/frame.h>
+#include <libavutil/imgutils.h>
+#include <libswscale/swscale.h>
+
+#include <maker.h>
+
+/* ---- defs ---
+ */
 #ifndef MAKER_ASSERT
 #include <assert.h>
 #define MAKER_ASSERT(c) assert(c)
@@ -24,25 +43,7 @@ typedef unsigned long long u64;
 typedef float              real32;
 typedef double             real64;
 typedef unsigned char bool;
-
-#include <stdlib.h>
 typedef size_t usize;
-
-/* ---- dependencies ----
- */
-#include <pthread.h>
-#include <time.h>
-
-#include <libavcodec/avcodec.h>
-#include <libavcodec/packet.h>
-#include <libavformat/avformat.h>
-#include <libavutil/avutil.h>
-#include <libavutil/fifo.h>
-#include <libavutil/frame.h>
-#include <libavutil/imgutils.h>
-#include <libswscale/swscale.h>
-
-#include <maker.h>
 
 /* ---- util.c ----
  */
@@ -91,23 +92,31 @@ extern MakerPixelFormat   maker_format_from_av_pixel_format(enum AVPixelFormat p
 
 #define MAKER_OUT_OF_MEMORY MAKER_LOG_ERROR("Out of memory")
 #define MAKER_CHECK(v)                   \
-    if ((v) == NULL) {                   \
+    if ((v) == 0) {                      \
         MAKER_LOG_WARN("Invalid value"); \
         return MAKER_STATUS_ERROR;       \
     }
+#define MAKER_UNUSED(v) (void)(v)
 
-extern void maker_log(u32 code, char* message, u32 line, char* filename);
+#define MAKER_ATOMIC_COMPARE_EXCHANGE(Ptr, Expected, Desired) \
+    __atomic_compare_exchange_n(Ptr, Expected, Desired, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
+#define MAKER_ATOMIC_LOAD(Ptr) __atomic_load_n(Ptr, __ATOMIC_SEQ_CST)
+#define MAKER_ATOMIC_STORE(Ptr, Value) __atomic_store_n(Ptr, Value, __ATOMIC_SEQ_CST)
+
+extern void  maker_log(u32 code, char* message, u32 line, char* filename);
+extern char* maker_format(char* format, ...);
 
 /* ---- thread.c ----
  */
 typedef pthread_mutex_t MakerMutex;
 typedef pthread_cond_t  MakerCond;
 
-typedef MakerStatus (*MakerThreadFunction)(void* userdata);
+typedef MakerStatus (*MakerThreadFunction)(void* user_data, u32 user_index);
 typedef struct {
     pthread_t           handle;
     MakerThreadFunction callback;
-    void*               userdata;
+    void*               user_data;
+    u32                 user_index;
     MakerStatus         status;
 } MakerThread;
 
@@ -130,8 +139,8 @@ extern MakerStatus maker_thread_wait(MakerThread* thread);
  */
 
 typedef struct {
-    MakerThreadFunction callback;
-    void*               data;
+    MakerStatus (*callback)(void* user_data);
+    void* data;
 } MakerThreadPoolJob;
 
 typedef struct {
@@ -151,7 +160,7 @@ extern MakerThreadPool* maker_thread_pool_alloc(void);
 extern void             maker_thread_pool_dealloc(MakerThreadPool* pool);
 extern MakerStatus      maker_thread_pool_init(MakerThreadPool* pool, usize thread_count);
 extern void             maker_thread_pool_uninit(MakerThreadPool* pool);
-extern MakerStatus      maker_thread_pool_queue_job(MakerThreadPool* pool, MakerStatus (*user_job)(void* data), void* user_data);
+extern MakerStatus      maker_thread_pool_queue_job(MakerThreadPool* pool, MakerStatus (*user_job)(void* user_data), void* user_data);
 extern i32              maker_thread_pool_job_count(MakerThreadPool* pool);
 
 /* ---- frame_queue.c ----
@@ -184,6 +193,7 @@ extern MakerFrameQueueItem* maker_frame_queue_peek_last(MakerFrameQueue* queue);
  */
 typedef struct {
     AVPacket* packet;
+    u32       serial;
 } MakerPacketQueueItem;
 
 typedef struct {
@@ -191,13 +201,17 @@ typedef struct {
     MakerCond  new_item_signal;
     AVFifo*    fifo;
     u32        packet_count;
+    i32        serial;
+    bool       is_aborted;
 } MakerPacketQueue;
 
 extern MakerStatus maker_packet_queue_init(MakerPacketQueue* queue);
-extern void        maker_packet_queue_flush(MakerPacketQueue* queue);
 extern void        maker_packet_queue_uninit(MakerPacketQueue* queue);
-extern MakerStatus maker_packet_queue_put(MakerPacketQueue* queue, AVPacket* packet, bool* is_aborted);
-extern i32         maker_packet_queue_get(MakerPacketQueue* queue, AVPacket* packet, bool should_block, bool* is_aborted);
+extern void        maker_packet_queue_start(MakerPacketQueue* queue);
+extern void        maker_packet_queue_stop(MakerPacketQueue* queue);
+extern void        maker_packet_queue_flush(MakerPacketQueue* queue);
+extern MakerStatus maker_packet_queue_put(MakerPacketQueue* queue, AVPacket* packet);
+extern i32         maker_packet_queue_get(MakerPacketQueue* queue, AVPacket* packet, bool should_block, i32* serial);
 
 /* ---- media.c ----
  */
@@ -235,6 +249,7 @@ typedef struct {
     AVFrame*             frame;
     MakerVideoConverter* converter;
     i32                  stream_index;
+    i32                  packet_serial;
     bool                 is_aborted;
 } MakerVideoDecoder;
 
@@ -255,6 +270,9 @@ typedef struct {
     AVPacket*          packet;
     MakerVideoDecoder* video;
     AVFormatContext*   format;
+    u32                seek_timestamp;
+    u32                seek_flags;
+    bool               needs_seek;
     bool               is_aborted;
     bool               is_eof;
 } MakerDemuxer;

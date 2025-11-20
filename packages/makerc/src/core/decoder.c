@@ -1,12 +1,13 @@
+#include "maker.h"
 #include "maker_internal.h"
-#include <stdio.h>
+#include <unistd.h>
 
 static MakerStatus maker__decoder_decode(MakerDecoder* user_decoder)
 {
     MAKER_CHECK(user_decoder);
 
     MakerDecoderInternal* decoder = (MakerDecoderInternal*)user_decoder;
-    if (decoder->desc.use_threads == FALSE) {
+    if (decoder->desc.use_threads == TRUE) {
         return MAKER_STATUS_OK;
     }
 
@@ -90,13 +91,17 @@ void maker_decoder_free(MakerDecoder* user_decoder)
 MakerStatus maker_decoder_demux(MakerDecoder* user_decoder)
 {
     MakerDecoderInternal* decoder = (MakerDecoderInternal*)user_decoder;
-    return maker_demuxer_start(&decoder->demuxer, NULL);
+    MakerStatus           status  = maker_demuxer_start(&decoder->demuxer, NULL);
+    MAKER_LOG_INFO("demux stopped");
+    return status;
 }
 
 MakerStatus maker_decoder_decode_video(MakerDecoder* user_decoder)
 {
     MakerDecoderInternal* decoder = (MakerDecoderInternal*)user_decoder;
-    return maker_video_decoder_start(&decoder->video, NULL);
+    MakerStatus           status  = maker_video_decoder_start(&decoder->video, NULL);
+    MAKER_LOG_INFO("decode_video stopped");
+    return status;
 }
 
 MakerStatus maker_decoder_start(MakerDecoder* user_decoder)
@@ -104,6 +109,12 @@ MakerStatus maker_decoder_start(MakerDecoder* user_decoder)
     MAKER_CHECK(user_decoder);
 
     MakerDecoderInternal* decoder = (MakerDecoderInternal*)user_decoder;
+
+    if (decoder->desc.use_playback) {
+        MakerDecoderInternal* internal = (MakerDecoderInternal*)decoder;
+        maker_clock_start(&internal->clock);
+    }
+
     if (decoder->desc.use_threads == FALSE) {
         return MAKER_STATUS_OK;
     }
@@ -131,6 +142,12 @@ MakerStatus maker_decoder_stop(MakerDecoder* user_decoder)
     MAKER_CHECK(user_decoder);
 
     MakerDecoderInternal* decoder = (MakerDecoderInternal*)user_decoder;
+
+    if (decoder->desc.use_playback) {
+        MakerDecoderInternal* internal = (MakerDecoderInternal*)decoder;
+        maker_clock_pause(&internal->clock);
+    }
+
     if (decoder->desc.use_threads == FALSE) {
         return MAKER_STATUS_OK;
     }
@@ -140,51 +157,42 @@ MakerStatus maker_decoder_stop(MakerDecoder* user_decoder)
     return MAKER_STATUS_OK;
 }
 
-// MakerStatus maker_decoder_seek(MakerDecoder* decoder, int seconds)
-// {
-//     (void)decoder;
-//     (void)seconds;
-//     return MAKER_STATUS_OK;
-// }
+MakerStatus maker_decoder_seek(MakerDecoder* user_decoder, u64 timestamp)
+{
+    MAKER_CHECK(user_decoder);
 
-// MakerStatus maker_decoder_start_playback(MakerDecoder* decoder)
-// {
-//     MAKER_CHECK(decoder);
+    MakerDecoderInternal* decoder = (MakerDecoderInternal*)user_decoder;
+    MakerDemuxer*         demuxer = &decoder->demuxer;
 
-//     MakerDecoderInternal* internal = (MakerDecoderInternal*)decoder;
-//     maker_clock_start(&internal->clock);
+    if (demuxer->needs_seek) {
+        return MAKER_STATUS_BUSY;
+    }
 
-//     return MAKER_STATUS_OK;
-// }
+    demuxer->needs_seek     = TRUE;
+    demuxer->seek_timestamp = timestamp;
+    demuxer->seek_flags &= ~AVSEEK_FLAG_BYTE;
 
-// MakerStatus maker_decoder_pause_playback(MakerDecoder* decoder)
-// {
-//     MAKER_CHECK(decoder);
+    return MAKER_STATUS_OK;
+}
 
-//     MakerDecoderInternal* internal = (MakerDecoderInternal*)decoder;
-//     maker_clock_pause(&internal->clock);
+MakerStatus maker_decoder_get_playback_time(MakerDecoder* decoder, u32* time_ms)
+{
+    MAKER_CHECK(decoder);
+    MAKER_CHECK(time_ms);
 
-//     return MAKER_STATUS_OK;
-// }
+    MakerDecoderInternal* internal = (MakerDecoderInternal*)decoder;
+    MakerClock*           clock    = &internal->clock;
 
-// MakerStatus maker_decoder_get_playback_time(MakerDecoder* decoder, u32* time_ms)
-// {
-//     MAKER_CHECK(decoder);
-//     MAKER_CHECK(time_ms);
+    MakerTime time = { 0 };
+    if (maker_get_time(&time) != MAKER_STATUS_OK) {
+        return MAKER_STATUS_ERROR;
+    };
 
-//     MakerDecoderInternal* internal = (MakerDecoderInternal*)decoder;
-//     MakerClock*           clock    = &internal->clock;
+    *time_ms = (time.tv_sec - clock->start_time->tv_sec) * 1000
+        + (time.tv_nsec - clock->start_time->tv_nsec) / 1000000;
 
-//     MakerTime time = { 0 };
-//     if (maker_get_time(&time) != MAKER_STATUS_OK) {
-//         return MAKER_STATUS_ERROR;
-//     };
-
-//     *time_ms = (time.tv_sec - clock->start_time->tv_sec) * 1000
-//         + (time.tv_nsec - clock->start_time->tv_nsec) / 1000000;
-
-//     return MAKER_STATUS_OK;
-// }
+    return MAKER_STATUS_OK;
+}
 
 // MakerStatus maker_decoder_set_playback_time(MakerDecoder* decoder, u32 time_ms)
 // {

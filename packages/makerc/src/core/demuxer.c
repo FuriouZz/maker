@@ -1,4 +1,7 @@
+#include "libavformat/avformat.h"
+#include "maker.h"
 #include "maker_internal.h"
+#include <stdint.h>
 
 static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptions* options)
 {
@@ -21,8 +24,17 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptio
     }
 
     for (;;) {
-        if (__atomic_load_n(&demuxer->is_aborted, __ATOMIC_SEQ_CST) == TRUE) {
+        if (MAKER_ATOMIC_LOAD(&demuxer->is_aborted) == TRUE) {
             break;
+        }
+
+        if (demuxer->needs_seek) {
+            demuxer->needs_seek = FALSE;
+            if (avformat_seek_file(format, -1, INT64_MIN, demuxer->seek_timestamp, INT64_MAX, AVSEEK_FLAG_BYTE) < 0) {
+                MAKER_LOG_ERROR("Failed to seek");
+                continue;
+            }
+            demuxer->is_eof = FALSE;
         }
 
         if (av_fifo_can_write(video->packet_queue.fifo) == 0) {
@@ -44,7 +56,9 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptio
 
         if (packet->stream_index == video->stream_index) {
             MAKER_LOG_DEBUG("Put video packet");
-            maker_packet_queue_put(&video->packet_queue, packet, &demuxer->is_aborted);
+            if (maker_packet_queue_put(&video->packet_queue, packet) != MAKER_STATUS_OK) {
+                MAKER_LOG_ERROR("Cannot write packet");
+            }
 
             if (remaining > 0) {
                 remaining--;
@@ -53,9 +67,7 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptio
         }
     }
 
-    bool expected = FALSE;
-    bool desired  = TRUE;
-    __atomic_compare_exchange(&demuxer->is_aborted, &expected, &desired, FALSE, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    MAKER_ATOMIC_STORE(&demuxer->is_aborted, FALSE);
 
     status = MAKER_STATUS_OK;
 
@@ -122,25 +134,29 @@ MakerStatus maker_demuxer_start(MakerDemuxer* demuxer, MakerDemuxerOptions* opti
 {
     MAKER_CHECK(demuxer);
 
-    if (__atomic_load_n(&demuxer->is_aborted, __ATOMIC_SEQ_CST) == FALSE) {
+    bool expected = TRUE;
+    if (MAKER_ATOMIC_COMPARE_EXCHANGE(&demuxer->is_aborted, &expected, FALSE) == FALSE) {
         return MAKER_STATUS_BUSY;
     }
 
-    __atomic_store_n(&demuxer->is_aborted, FALSE, __ATOMIC_SEQ_CST);
-    maker__demuxer_demux(demuxer, options);
-
-    return MAKER_STATUS_OK;
+    if (demuxer->video != NULL) {
+        maker_packet_queue_start(&demuxer->video->packet_queue);
+    }
+    return maker__demuxer_demux(demuxer, options);
 }
 
 MakerStatus maker_demuxer_stop(MakerDemuxer* demuxer)
 {
     MAKER_CHECK(demuxer);
 
-    if (__atomic_load_n(&demuxer->is_aborted, __ATOMIC_SEQ_CST) == TRUE) {
+    bool expected = FALSE;
+    if (MAKER_ATOMIC_COMPARE_EXCHANGE(&demuxer->is_aborted, &expected, TRUE) == FALSE) {
         return MAKER_STATUS_OK;
     }
 
-    __atomic_store_n(&demuxer->is_aborted, TRUE, __ATOMIC_SEQ_CST);
+    if (demuxer->video != NULL) {
+        maker_packet_queue_stop(&demuxer->video->packet_queue);
+    }
     maker_cond_signal(&demuxer->signal);
 
     return MAKER_STATUS_OK;

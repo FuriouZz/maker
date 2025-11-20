@@ -34,7 +34,7 @@ MakerStatus maker_video_frame_init(MakerVideoFrame* data, MakerVideoFrameDesc de
     enum AVPixelFormat format = maker_format_to_av_pixel_format(desc.format);
 
     if (format == AV_PIX_FMT_NONE) {
-        data->is_valid = 0;
+        data->is_valid = FALSE;
         return -1;
     }
 
@@ -43,7 +43,7 @@ MakerStatus maker_video_frame_init(MakerVideoFrame* data, MakerVideoFrameDesc de
 
     u8* buffer = maker_malloc_clear(buffer_size * sizeof(*buffer));
     if (!buffer) {
-        data->is_valid = 0;
+        data->is_valid = FALSE;
         return -1;
     }
 
@@ -69,8 +69,9 @@ void maker_video_frame_uninit(MakerVideoFrame* data)
 
 MakerStatus maker_video_frame_save_pgm(MakerVideoFrame* target, char* output)
 {
-    MAKER_CHECK(target);
     MAKER_CHECK(output);
+    MAKER_CHECK(target);
+    MAKER_CHECK(target->is_valid);
 
     FILE* f = fopen(output, "wb");
     MAKER_CHECK(f);
@@ -104,8 +105,9 @@ MakerStatus maker_video_frame_save_pgm(MakerVideoFrame* target, char* output)
 
 MakerStatus maker_video_frame_save_ppm(MakerVideoFrame* target, char* output)
 {
-    MAKER_CHECK(target);
     MAKER_CHECK(output);
+    MAKER_CHECK(target);
+    MAKER_CHECK(target->is_valid);
 
     FILE* f = fopen(output, "wb");
     MAKER_CHECK(f);

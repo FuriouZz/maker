@@ -26,7 +26,7 @@ int main(void)
     maker_decoder_start(decoder);
 
     printf("sleep 1s...\n");
-    sleep(1);
+    sleep(2);
     printf("sleep complete\n");
 
     maker_decoder_get_video_frame(decoder, frame);

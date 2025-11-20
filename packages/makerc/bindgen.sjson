@@ -4,7 +4,8 @@ inputs = [
 
 imports_file = "./imports.odin"
 
-output_folder = "bindings/maker"
+// output_folder = "bindings/maker"
+output_folder = "../editor/vendors/maker"
 
 package_name = "makerc"
 

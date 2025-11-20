@@ -54,6 +54,7 @@ typedef struct {
 typedef void MakerDecoder;
 
 typedef struct {
+    unsigned char use_playback;
     unsigned char use_threads;
     void (*thread_cb)(MakerStatus (*task)(MakerDecoder* decoder), MakerDecoder* decoder);
 } MakerDecoderDesc;
@@ -73,7 +74,8 @@ extern void          maker_decoder_free(MakerDecoder* decoder);
 extern MakerStatus   maker_decoder_start(MakerDecoder* decoder);
 extern MakerStatus   maker_decoder_stop(MakerDecoder* decoder);
 extern unsigned int  maker_decoder_get_video_frame(MakerDecoder* decoder, MakerVideoFrame* target);
-extern MakerStatus   maker_decoder_seek(MakerDecoder* decoder, int seconds);
+extern MakerStatus   maker_decoder_get_playback_time(MakerDecoder* decoder, unsigned int* time_ms);
+extern MakerStatus   maker_decoder_seek(MakerDecoder* decoder, unsigned long long seconds);
 
 extern MakerStatus maker_decoder_demux(MakerDecoder* user_decoder);
 extern MakerStatus maker_decoder_decode_video(MakerDecoder* user_decoder);

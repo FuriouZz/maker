@@ -61,12 +61,12 @@ MakerStatus maker_video_decoder_init(MakerVideoDecoder* video, MakerMedia* media
         goto cleanup_packet_queue;
     }
 
-    video->is_aborted   = FALSE;
-    video->codec        = codec_context;
-    video->packet       = packet;
-    video->frame        = frame;
-    video->stream_index = stream_index;
-    video->is_aborted   = TRUE;
+    video->codec         = codec_context;
+    video->packet        = packet;
+    video->frame         = frame;
+    video->stream_index  = stream_index;
+    video->packet_serial = -1;
+    video->is_aborted    = TRUE;
 
     return MAKER_STATUS_OK;
 
@@ -104,35 +104,52 @@ static i32 maker__video_decoder_decode_frame(MakerVideoDecoder* video, bool* is_
     AVFrame* frame  = video->frame;
 
     for (;;) {
-        do {
-            if (__atomic_load_n(is_aborted, __ATOMIC_SEQ_CST) == TRUE) {
-                return -1;
-            }
+        if (video->packet_queue.serial == video->packet_serial) {
+            do {
+                if (MAKER_ATOMIC_LOAD(is_aborted) == TRUE) {
+                    return -1;
+                }
 
-            status = avcodec_receive_frame(video->codec, frame);
-            if (status == AVERROR_EOF) {
-                avcodec_flush_buffers(video->codec);
-                return 0;
-            }
+                status = avcodec_receive_frame(video->codec, frame);
+                if (status == AVERROR_EOF) {
+                    avcodec_flush_buffers(video->codec);
+                    return 0;
+                }
 
-            if (status == 0) {
-                MAKER_LOG_DEBUG("Received frame");
-                return 1;
-            }
-        } while (status != AVERROR(EAGAIN));
+                if (status == 0) {
+                    MAKER_LOG_DEBUG("Received frame");
+                    return 1;
+                }
+            } while (status != AVERROR(EAGAIN));
+        }
 
         for (;;) {
-            if (__atomic_load_n(is_aborted, __ATOMIC_SEQ_CST) == TRUE) {
+            if (MAKER_ATOMIC_LOAD(is_aborted) == TRUE) {
                 return -1;
             }
 
-            status = maker_packet_queue_get(&video->packet_queue, video->packet, FALSE, is_aborted);
+            i32 old_serial = video->packet_serial;
+
+            status = maker_packet_queue_get(
+                &video->packet_queue,
+                video->packet,
+                FALSE,
+                &video->packet_serial
+            );
 
             if (status < 0) {
                 return -1;
-            } else if (status == 1) {
+            }
+
+            if (old_serial != video->packet_serial) {
+                avcodec_flush_buffers(video->codec);
+            }
+
+            if (video->packet_queue.serial == video->packet_serial) {
                 break;
             }
+
+            av_packet_unref(video->packet);
         }
 
         if (avcodec_send_packet(video->codec, video->packet) == AVERROR(EAGAIN)) {
@@ -149,14 +166,9 @@ static i32 maker__video_decoder_decode_frame(MakerVideoDecoder* video, bool* is_
     return 0;
 }
 
-MakerStatus maker_video_decoder_start(MakerVideoDecoder* video, MakerVideoDecoderOptions* options)
+static MakerStatus maker__video_decoder_decode(MakerVideoDecoder* video, MakerVideoDecoderOptions* options)
 {
-    MAKER_CHECK(video);
-
-    if (__atomic_load_n(&video->is_aborted, __ATOMIC_SEQ_CST) == FALSE) {
-        return MAKER_STATUS_BUSY;
-    }
-    __atomic_store_n(&video->is_aborted, FALSE, __ATOMIC_SEQ_CST);
+    bool* is_aborted = &video->is_aborted;
 
     MakerStatus status = MAKER_STATUS_ERROR;
 
@@ -166,11 +178,12 @@ MakerStatus maker_video_decoder_start(MakerVideoDecoder* video, MakerVideoDecode
     }
 
     for (;;) {
-        i32 result = maker__video_decoder_decode_frame(video, &video->is_aborted);
+        i32 result = maker__video_decoder_decode_frame(video, is_aborted);
+
         if (result < 0) break;
         if (result == 0) continue;
 
-        MakerFrameQueueItem* item = maker_frame_queue_peek_writable(&video->frame_queue, &video->is_aborted);
+        MakerFrameQueueItem* item = maker_frame_queue_peek_writable(&video->frame_queue, is_aborted);
         if (item == NULL) {
             MAKER_LOG_WARN("Failed to peek writable frame");
             break;
@@ -186,24 +199,44 @@ MakerStatus maker_video_decoder_start(MakerVideoDecoder* video, MakerVideoDecode
         }
     }
 
-    bool expected = FALSE;
-    bool desired  = TRUE;
-    __atomic_compare_exchange(&video->is_aborted, &expected, &desired, FALSE, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-
     status = MAKER_STATUS_OK;
+    MAKER_ATOMIC_STORE(&video->is_aborted, TRUE);
 
     return status;
+}
+
+MakerStatus maker_video_decoder_start(MakerVideoDecoder* video, MakerVideoDecoderOptions* options)
+{
+    MAKER_CHECK(video);
+
+    bool expected = TRUE;
+    if (MAKER_ATOMIC_COMPARE_EXCHANGE(
+            &video->is_aborted,
+            &expected,
+            FALSE
+        )
+        == FALSE) {
+        return MAKER_STATUS_BUSY;
+    }
+
+    return maker__video_decoder_decode(video, options);
 }
 
 MakerStatus maker_video_decoder_stop(MakerVideoDecoder* video)
 {
     MAKER_CHECK(video);
 
-    if (__atomic_load_n(&video->is_aborted, __ATOMIC_SEQ_CST) == TRUE) {
+    bool expected = FALSE;
+    if (MAKER_ATOMIC_COMPARE_EXCHANGE(
+            &video->is_aborted,
+            &expected,
+            TRUE
+        )
+        == FALSE) {
         return MAKER_STATUS_OK;
     }
 
-    __atomic_store_n(&video->is_aborted, TRUE, __ATOMIC_SEQ_CST);
+    maker_cond_broadcast(&video->frame_queue.new_item_signal);
 
     return MAKER_STATUS_OK;
 }

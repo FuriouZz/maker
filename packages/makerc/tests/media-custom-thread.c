@@ -62,5 +62,7 @@ int main(void)
     maker_decoder_free(decoder);
     maker_media_free(media);
 
+    maker_thread_pool_uninit(&pool);
+
     return 0;
 }
