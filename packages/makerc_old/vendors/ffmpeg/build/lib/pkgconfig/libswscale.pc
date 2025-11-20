@@ -1,0 +1,14 @@
+prefix=/Users/furiouzz/Developer/maker/maker4/packages/makerc/vendors/ffmpeg/build
+exec_prefix=${prefix}
+libdir=/Users/furiouzz/Developer/maker/maker4/packages/makerc/vendors/ffmpeg/build/lib
+includedir=/Users/furiouzz/Developer/maker/maker4/packages/makerc/vendors/ffmpeg/build/include
+
+Name: libswscale
+Description: FFmpeg image rescaling library
+Version: 9.1.100
+Requires: 
+Requires.private: libavutil >= 60.8.100
+Conflicts:
+Libs: -L${libdir}  -lswscale 
+Libs.private: -lm
+Cflags: -I${includedir}

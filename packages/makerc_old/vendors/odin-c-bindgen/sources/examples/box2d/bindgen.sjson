@@ -1,0 +1,38 @@
+// See README.md in root of repository for documentation and more configuration options.
+
+inputs = [
+	"input"
+]
+
+output_folder = "box2d"
+remove_type_prefix = "b2"
+remove_function_prefix = "b2"
+remove_macro_prefix = "B2_"
+required_prefix = "b2"
+import_lib = "box2d.lib"
+package_name = "box2d"
+
+struct_field_overrides = {
+	"b2DynamicTree.nodes"  = "[^]"
+	"b2ChainDef.points"    = "[^]"
+	"b2ChainDef.materials" = "[^]"
+	
+	// This is not a complete override list, it's just an example.
+}
+
+procedure_type_overrides = {
+	"b2CreateWorld.def" = "#by_ptr"
+	"b2CreateBody.def" = "#by_ptr"
+	"b2CreatePolygonShape.def" = "#by_ptr"
+	"b2CreatePolygonShape.polygon" = "#by_ptr"
+	"b2CreateCircleShape.def" = "#by_ptr"
+	"b2CreateCircleShape.circle" = "#by_ptr"
+
+	// This is not a complete override list, it's just an example.
+}
+
+remove_macros = [
+	"B2_API",
+	"B2_BREAKPOINT",
+	"B2_DEFAULT_MASK_BITS"
+]

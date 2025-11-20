@@ -1,0 +1,14 @@
+prefix=/Users/furiouzz/Developer/maker/maker4/packages/makerc/vendors/ffmpeg/build
+exec_prefix=${prefix}
+libdir=/Users/furiouzz/Developer/maker/maker4/packages/makerc/vendors/ffmpeg/build/lib
+includedir=/Users/furiouzz/Developer/maker/maker4/packages/makerc/vendors/ffmpeg/build/include
+
+Name: libavutil
+Description: FFmpeg utility library
+Version: 60.8.100
+Requires: 
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavutil 
+Libs.private: -lm -framework VideoToolbox -pthread -L/opt/homebrew/Cellar/libx11/1.8.12/lib -lX11 -framework CoreFoundation -framework CoreMedia -framework CoreVideo -framework CoreServices
+Cflags: -I${includedir}

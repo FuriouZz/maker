@@ -1,0 +1,224 @@
+// See README.md in root of repository for documentation and more configuration options.
+
+inputs = [
+	"input"
+]
+
+output_folder = "raylib"
+imports_file = "imports.odin"
+package_name = "raylib"
+
+// "Old_Name" = "New_Name"
+rename = {
+	"Gesture" = "Gestures"
+	"Gesture_Enum" = "Gesture"
+}
+
+// "Enum_To_Turn_Into_Bitset" = "New_Enum_Type_Name"
+bit_setify = {
+	"Gesture" = "Gesture_Enum"
+	"ConfigFlags" = "ConfigFlag"
+}
+
+type_overrides = {
+	"Vector2" = "[2]f32"
+	"Vector3" = "[3]f32"
+	"Vector4" = "[4]f32"
+	"Matrix"  = "#row_major matrix[4, 4]f32"
+	"Color"   = "distinct [4]u8"
+}
+
+struct_field_overrides = {
+	"Image.format"      = "PixelFormat"
+	"Texture.format"    = "PixelFormat"
+	"NPatchInfo.layout" = "NPatchLayout"
+	"GlyphInfo.value"   = "rune"
+
+	"Font.recs"   = "[^]"
+	"Font.glyphs" = "[^]"
+
+	"Sound.stream" = "using",
+	"Music.stream" = "using",
+
+	"Camera3D.projection" = "CameraProjection"
+
+	"Mesh.vertices"     = "[^]"
+	"Mesh.texcoords"    = "[^]"
+	"Mesh.texcoords2"   = "[^]"
+	"Mesh.normals"      = "[^]"
+	"Mesh.tangents"     = "[^]"
+	"Mesh.colors"       = "[^]"
+	"Mesh.indices"      = "[^]"
+	"Mesh.animVertices" = "[^]"
+	"Mesh.animNormals"  = "[^]"
+	"Mesh.boneIds"      = "[^]"
+	"Mesh.boneWeights"  = "[^]"
+	"Mesh.boneMatrices" = "[^]"
+	"Mesh.vboId"        = "[^]"
+	"Shader.locs"       = "[^]"
+	"Material.maps"     = "[^]"
+	"Model.meshes"        = "[^]"
+	"Model.materials"     = "[^]"
+	"Model.meshMaterial"  = "[^]"
+	"Model.bones"         = "[^]"
+	"Model.bindPose"      = "[^]"
+	"ModelAnimation.bones"      = "[^]"
+	"ModelAnimation.framePoses" = "[^][^]Transform"
+
+	"AudioStream.buffer"   = "rawptr"
+	"AudioStream.processor" = "rawptr"
+
+	"FilePathList.paths" = "[^]"
+	"AutomationEventList.events" = "[^]"
+}
+
+struct_field_tags = {
+	"BoneInfo.name" = "fmt:\"s,0\""
+	"ModelAnimation.name" = "fmt:\"s,0\""
+}
+
+procedure_type_overrides = {
+	"SetConfigFlags.flags"   = "ConfigFlags"
+	"SetWindowState.flags"   = "ConfigFlags"
+	"ClearWindowState.flags" = "ConfigFlags"
+
+	"SetWindowIcons.images" = "[^]"
+
+	"IsKeyPressed.key"       = "KeyboardKey"
+	"IsKeyPressedRepeat.key" = "KeyboardKey"
+	"IsKeyDown.key"          = "KeyboardKey"
+	"IsKeyReleased.key"      = "KeyboardKey"
+	"IsKeyUp.key"            = "KeyboardKey"
+	"GetKeyPressed"          = "KeyboardKey"
+	
+	"IsMouseButtonPressed.button"  = "MouseButton"
+	"IsMouseButtonDown.button"     = "MouseButton"
+	"IsMouseButtonReleased.button" = "MouseButton"
+	"IsMouseButtonUp.button"       = "MouseButton"
+
+	"SetShaderValue.locIndex"        = "#any_int",
+	"SetShaderValueV.locIndex"       = "#any_int",
+	"SetShaderValueMatrix.locIndex"  = "#any_int",
+	"SetShaderValueTexture.locIndex" = "#any_int",
+
+	"SetShaderValue.uniformType"   = "ShaderUniformDataType"
+	"SetShaderValueV.uniformType"  = "ShaderUniformDataType"
+	"SetExitKey.key"               = "KeyboardKey"
+	"GetKeyName.key"               = "KeyboardKey"
+	"IsGestureDetected.gesture"    = "Gestures"
+	"SetGesturesEnabled.flags"     = "Gestures"
+
+	"LoadRandomSequence" = "[^]"
+	"UnloadRandomSequence.sequence" = "[^]"	
+
+	"LoadFileData" = "[^]"
+	"UnloadFileData.data" = "[^]"
+	"LoadFileText" = "[^]u8"
+	"UnloadFileText.text" = "[^]u8"
+	"SaveFileText.text" = "[^]u8"
+
+	"CompressData" = "[^]"
+	"CompressData.data" = "rawptr"
+	"DecompressData" = "[^]"
+	"DecompressData.compData" = "rawptr"
+	"EncodeDataBase64" = "[^]u8"
+	"EncodeDataBase64.data" = "rawptr"
+	"DecodeDataBase64" = "[^]"
+	"DecodeDataBase64.data" = "rawptr"
+	"ComputeCRC32.data" = "rawptr"
+	"ComputeMD5" = "[^]"
+	"ComputeMD5.data" = "rawptr"
+	"ComputeSHA1" = "[^]"
+	"ComputeSHA1.data" = "rawptr"
+
+	"IsGamepadButtonPressed.button" = "GamepadButton"
+	"IsGamepadButtonDown.button" = "GamepadButton"
+	"IsGamepadButtonReleased.button" = "GamepadButton"
+	"IsGamepadButtonUp.button" = "GamepadButton"
+	"GetGamepadButtonPressed" = "GamepadButton"
+	"GetGamepadAxisMovement.axis" = "GamepadAxis"
+
+	"SetMouseCursor.cursor" = "MouseCursor"
+
+	"UpdateCamera.mode" = "CameraMode"
+
+	"DrawLineStrip.points" = "[^]"
+	"DrawTriangleFan.points" = "[^]"
+	"DrawTriangleStrip.points" = "[^]"
+
+	"DrawSplineLinear.points" = "[^]"
+	"DrawSplineBasis.points" = "[^]"
+	"DrawSplineCatmullRom.points" = "[^]"
+	"DrawSplineBezierQuadratic.points" = "[^]"
+	"DrawSplineBezierCubic.points" = "[^]"
+
+	"CheckCollisionLines.collisionPoint" = "[^]"
+
+	"ExportImageToMemory" = "rawptr"
+
+	"UnloadImageColors.colors" = "[^]"
+	"UnloadImagePalette.colors" = "[^]"
+
+	"ImageDrawTriangleFan.points" = "[^]"
+	"ImageDrawTriangleStrip.points" = "[^]"
+
+	"GetPixelColor.format" = "PixelFormat"
+	"SetPixelColor.format" = "PixelFormat"
+	"GetPixelDataSize.format" = "PixelFormat"
+
+	"LoadFontEx.codepoints" = "[^]rune"
+	"LoadFontFromMemory.codepoints" = "[^]rune"
+	"LoadFontData.codepoints" = "[^]rune"
+	"LoadFontData" = "[^]"
+
+	"GenImageFontAtlas.glyphs" = "[^]"
+	"GenImageFontAtlas.glyphRecs" = "^[^]Rectangle"
+	"UnloadFontData.glyphs" = "[^]"
+
+	"DrawTextCodepoints.codepoints" = "[^]"
+
+	"LoadUTF8.codepoints" = "[^]rune"
+	"LoadUTF8" = "[^]u8"
+	"UnloadUTF8.text" = "[^]u8"
+	"LoadCodepoints" = "[^]rune"
+	"UnloadCodepoints.codepoints" = "[^]rune"
+	"GetCodepoint" = "rune"
+	"GetCodepointNext" = "rune"
+	"GetCodepointPrevious" = "rune"
+	"CodepointToUTF8.codepoint" = "rune"
+
+	"TextCopy.dst" = "[^]u8"
+	"TextInsert" = "[^]u8"
+	"TextReplace" = "[^]u8"
+	"TextReplace.text" = "[^]u8"
+	"TextJoin.textList" = "[^]"
+	"TextSplit" = "[^]"
+	"TextAppend.text" = "[^]u8"
+
+	"DrawTriangleStrip3D.points" = "[^]"
+
+	"DrawMeshInstanced.transforms" = "[^]"
+
+	"LoadMaterials" = "[^]"
+
+	"LoadModelAnimations" = "[^]"
+	"UnloadModelAnimations.animations" = "[^]"
+
+	"LoadWaveFromMemory.fileData" = "rawptr"
+	"LoadWaveSamples" = "[^]"
+	"UnloadWaveSamples.samples" = "[^]"
+
+	"LoadMusicStreamFromMemory.data" = "rawptr"
+}
+
+procedures_at_end = true
+
+remove = [
+	"MemFree",
+	"IsGestureDetected",
+	"GetGestureDetected",
+	"IsWindowState",
+	"TextFormat",
+	"rAudioBuffer",
+	"rAudioProcessor",
+]

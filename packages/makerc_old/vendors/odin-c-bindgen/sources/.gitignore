@@ -1,0 +1,11 @@
+*.pdb
+*.rdi
+*.exe
+scrap
+compile_examples.bat
+.vscode
+libclang.dll
+libclang/libclang.lib
+**/_output
+src/examples/tester/tester/*
+*.sublime-workspace
