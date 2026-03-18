@@ -1,8 +1,6 @@
 package build
 
-import "core:fmt"
-import os "core:os/os2"
-import "core:strings"
+import "core:os"
 
 Dependency :: struct {
 	name:             string,

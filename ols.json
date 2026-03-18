@@ -9,7 +9,7 @@
 	"profiles": [
 		{
 			"name": "default",
-			"checker_path": ["."]
+			"checker_path": ["./build", "./packages/makerc", "./packages/editor"]
 		}
 	]
 }
