@@ -1,7 +1,6 @@
-package build
+package flags
 
 import "base:runtime"
-import "core:flags"
 import "core:strings"
 import "core:testing"
 
@@ -12,6 +11,7 @@ Parsed_Args :: struct {
     flags: map[string]string,
     args:  [dynamic]string,
 }
+
 
 parse_args :: proc(
     args: []string,
@@ -67,6 +67,7 @@ dispose_parsed_args :: proc(args: Parsed_Args) {
     delete(args.flags)
     delete(args.args)
 }
+
 
 @(test)
 test_parse_args :: proc(t: ^testing.T) {
