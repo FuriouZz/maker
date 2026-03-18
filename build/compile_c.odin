@@ -15,11 +15,11 @@ C_Build_Mode :: enum {
 }
 
 C_Target :: struct {
-    name:         string,
-    definitions:  []string,
-    sources:      []string,
-    flags:        []string,
-    dependencies: []string,
+    name:        string,
+    definitions: []string,
+    sources:     []string,
+    flags:       []string,
+    libraries:   []string,
 }
 
 C_Artifact :: struct {
@@ -30,22 +30,22 @@ C_Artifact :: struct {
     definition_paths: []string,
 }
 
-C_Context :: struct {
+C_Build_Context :: struct {
     command:   string,
     targets:   map[string]C_Target,
     artifacts: map[string]C_Artifact,
 }
 
-add_c_target :: proc(ctx: ^C_Context, target: C_Target) {
+add_c_target :: proc(ctx: ^C_Build_Context, target: C_Target) {
     ctx.targets[target.name] = target
 }
 
-add_c_artifact :: proc(ctx: ^C_Context, artifact: C_Artifact) {
+add_c_artifact :: proc(ctx: ^C_Build_Context, artifact: C_Artifact) {
     ctx.artifacts[artifact.name] = artifact
 }
 
 get_c_target :: proc(
-    ctx: ^C_Context,
+    ctx: ^C_Build_Context,
     name: string,
 ) -> (
     target: ^C_Target,
@@ -55,7 +55,7 @@ get_c_target :: proc(
 }
 
 get_c_artifact :: proc(
-    ctx: ^C_Context,
+    ctx: ^C_Build_Context,
     name: string,
 ) -> (
     artifact: ^C_Artifact,
@@ -65,7 +65,7 @@ get_c_artifact :: proc(
 }
 
 compile_c_target :: proc(
-    ctx: ^C_Context,
+    ctx: ^C_Build_Context,
     target_name: string,
     artifact_name: string,
 ) -> os.Error {
@@ -77,13 +77,16 @@ compile_c_target :: proc(
     return nil
 }
 
-execute_c_target :: proc(ctx: ^C_Context, artifact_name: string) -> os.Error {
+execute_c_target :: proc(
+    ctx: ^C_Build_Context,
+    artifact_name: string,
+) -> os.Error {
     artifact, ok := get_c_artifact(ctx, artifact_name)
     if !ok {
         return .Not_Exist
     }
     command := fmt.tprintf("%s/%s", artifact.target_dir, artifact.target)
-    return exec({command})
+    return exec(command)
 }
 
 @(private = "file")
@@ -119,7 +122,7 @@ add_c_dependency_artifact :: proc(
 
 @(private = "file")
 compile_target_with_artifact :: proc(
-    ctx: ^C_Context,
+    ctx: ^C_Build_Context,
     target: ^C_Target,
     artifact: ^C_Artifact,
 ) -> os.Error {
@@ -151,7 +154,7 @@ compile_target_with_artifact :: proc(
             cmd2: [dynamic]string
             append(&cmd2, "cc")
             append(&cmd2, ..target.flags)
-            for name in target.dependencies {
+            for name in target.libraries {
                 dep := get_c_artifact(ctx, name) or_continue
                 add_definition_paths(&cmd2, dep)
             }
@@ -182,7 +185,7 @@ compile_target_with_artifact :: proc(
     append(&cmd, ..target.flags)
     add_definition_paths(&cmd, artifact)
 
-    for name in target.dependencies {
+    for name in target.libraries {
         dep := get_c_artifact(ctx, name) or_continue
         add_definition_paths(&cmd, dep)
 
@@ -192,9 +195,8 @@ compile_target_with_artifact :: proc(
         }
 
         if dep.type == .StaticLibrary {
-            for name in target.dependencies {
+            for name in target.libraries {
             }
-
         }
     }
 

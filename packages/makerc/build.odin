@@ -4,7 +4,6 @@ import "../../build"
 import "core:flags"
 import "core:fmt"
 import "core:os"
-import "core:strings"
 
 PROFILE :: #config(PROFILE, "debug")
 
@@ -36,6 +35,70 @@ when PROFILE == "release" {
     }
 }
 
+libavcodec :: build.C_Artifact {
+    name             = "avcodec",
+    target           = "libavcodec.dylib",
+    target_dir       = "vendors/ffmpeg/build/lib",
+    definition_paths = {"vendors/ffmpeg/build/include"},
+}
+
+libavdevice :: build.C_Artifact {
+    name             = "avdevice",
+    target           = "libavdevice.dylib",
+    target_dir       = "vendors/ffmpeg/build/lib",
+    definition_paths = {"vendors/ffmpeg/build/include"},
+}
+
+libavfilter :: build.C_Artifact {
+    name             = "avfilter",
+    target           = "libavfilter.dylib",
+    target_dir       = "vendors/ffmpeg/build/lib",
+    definition_paths = {"vendors/ffmpeg/build/include"},
+}
+
+libavformat :: build.C_Artifact {
+    name             = "avformat",
+    target           = "libavformat.dylib",
+    target_dir       = "vendors/ffmpeg/build/lib",
+    definition_paths = {"vendors/ffmpeg/build/include"},
+}
+
+libavutil :: build.C_Artifact {
+    name             = "avutil",
+    target           = "libavutil.dylib",
+    target_dir       = "vendors/ffmpeg/build/lib",
+    definition_paths = {"vendors/ffmpeg/build/include"},
+}
+
+libswresample :: build.C_Artifact {
+    name             = "swresample",
+    target           = "libswresample.dylib",
+    target_dir       = "vendors/ffmpeg/build/lib",
+    definition_paths = {"vendors/ffmpeg/build/include"},
+}
+
+libswscale :: build.C_Artifact {
+    name             = "swscale",
+    target           = "libswscale.dylib",
+    target_dir       = "vendors/ffmpeg/build/lib",
+    definition_paths = {"vendors/ffmpeg/build/include"},
+}
+
+artifact_libmaker :: build.C_Artifact {
+    name             = "maker",
+    type             = .SharedLibrary,
+    target           = "libmaker.dylib",
+    target_dir       = TARGET_DIR,
+    definition_paths = {"src/include"},
+}
+
+artifact_test_media :: build.C_Artifact {
+    name       = "media",
+    type       = .Executable,
+    target     = "media.bin",
+    target_dir = TARGET_DIR,
+}
+
 // // Create static library
 // libmaker_artifact := build.C_Artifact {
 //     name             = "maker",
@@ -62,224 +125,137 @@ when PROFILE == "release" {
 //     },
 // }
 
-main :: proc() {
-    ctx: build.C_Context
-    ctx.command = "gcc"
-
-    build.add_c_artifact(
-        &ctx,
-        {
-            name = "avcodec",
-            target = "libavcodec.dylib",
-            target_dir = "vendors/ffmpeg/build/lib",
-            definition_paths = {"vendors/ffmpeg/build/include"},
-        },
-    )
-    build.add_c_artifact(
-        &ctx,
-        {
-            name = "avdevice",
-            target = "libavdevice.dylib",
-            target_dir = "vendors/ffmpeg/build/lib",
-            definition_paths = {"vendors/ffmpeg/build/include"},
-        },
-    )
-    build.add_c_artifact(
-        &ctx,
-        {
-            name = "avfilter",
-            target = "libavfilter.dylib",
-            target_dir = "vendors/ffmpeg/build/lib",
-            definition_paths = {"vendors/ffmpeg/build/include"},
-        },
-    )
-    build.add_c_artifact(
-        &ctx,
-        {
-            name = "avformat",
-            target = "libavformat.dylib",
-            target_dir = "vendors/ffmpeg/build/lib",
-            definition_paths = {"vendors/ffmpeg/build/include"},
-        },
-    )
-    build.add_c_artifact(
-        &ctx,
-        {
-            name = "avutil",
-            target = "libavutil.dylib",
-            target_dir = "vendors/ffmpeg/build/lib",
-            definition_paths = {"vendors/ffmpeg/build/include"},
-        },
-    )
-    build.add_c_artifact(
-        &ctx,
-        {
-            name = "swresample",
-            target = "libswresample.dylib",
-            target_dir = "vendors/ffmpeg/build/lib",
-            definition_paths = {"vendors/ffmpeg/build/include"},
-        },
-    )
-    build.add_c_artifact(
-        &ctx,
-        {
-            name = "swscale",
-            target = "libswscale.dylib",
-            target_dir = "vendors/ffmpeg/build/lib",
-            definition_paths = {"vendors/ffmpeg/build/include"},
-        },
-    )
-    build.add_c_artifact(
-        &ctx,
-        {
-            name = "maker",
-            type = .SharedLibrary,
-            target = "libmaker.dylib",
-            target_dir = TARGET_DIR,
-            definition_paths = {"src/include"},
-        },
-    )
-    build.add_c_artifact(
-        &ctx,
-        {
-            name = "test_media",
-            type = .Executable,
-            target = "test_media.bin",
-            target_dir = TARGET_DIR,
-        },
-    )
-
-    build.add_c_target(
-        &ctx,
-        {
-            name = "maker",
-            flags = CFLAGS,
-            sources = {
-                "src/core/clock.c",
-                "src/core/decoder.c",
-                "src/core/demuxer.c",
-                "src/core/error.c",
-                "src/core/frame_queue.c",
-                "src/core/video_frame.c",
-                "src/core/media.c",
-                "src/core/packet_queue.c",
-                "src/core/pixel_format.c",
-                "src/core/thread.c",
-                "src/core/thread_pool.c",
-                "src/core/util.c",
-                "src/core/video_converter.c",
-                "src/core/video_decoder.c",
-            },
-            dependencies = {
-                "avcodec",
-                "avdevice",
-                "avfilter",
-                "avformat",
-                "avutil",
-                "swresample",
-                "swscale",
-            },
-        },
-    )
-    build.add_c_target(
-        &ctx,
-        {
-            name = "test_media",
-            flags = CFLAGS,
-            sources = {"tests/media.c"},
-            dependencies = {"maker"},
-        },
-    )
-
-    parse_args(&ctx)
+target_maker :: build.C_Target {
+    name      = "maker",
+    flags     = CFLAGS,
+    sources   = {
+        "src/core/clock.c",
+        "src/core/decoder.c",
+        "src/core/demuxer.c",
+        "src/core/error.c",
+        "src/core/frame_queue.c",
+        "src/core/video_frame.c",
+        "src/core/media.c",
+        "src/core/packet_queue.c",
+        "src/core/pixel_format.c",
+        "src/core/thread.c",
+        "src/core/thread_pool.c",
+        "src/core/util.c",
+        "src/core/video_converter.c",
+        "src/core/video_decoder.c",
+    },
+    libraries = {
+        "avcodec",
+        "avdevice",
+        "avfilter",
+        "avformat",
+        "avutil",
+        "swresample",
+        "swscale",
+    },
 }
 
-parse_args :: proc(ctx: ^build.C_Context) -> os.Error {
-    Commands :: enum {
-        help,
-        build,
-        build_test,
-        test,
-        install,
-        bear,
-        bindgen,
-    }
+target_test_media :: build.C_Target {
+    name      = "media",
+    flags     = CFLAGS,
+    sources   = {"tests/media.c"},
+    libraries = {"maker"},
+}
 
-    Options :: struct {
-        command:  Commands `args:"pos=0" usage:"Command to run"`,
-        overflow: [dynamic]string `usage:"Any extra arguments go here."`,
-    }
+main :: proc() {
+    build_context: build.C_Build_Context
+    build_context.command = "gcc"
 
-    Test_Options :: struct {
-        name: string `args:"pos=0,required" usage:"Name of the test to run"`,
-    }
+    build.add_c_artifact(&build_context, libavcodec)
+    build.add_c_artifact(&build_context, libavdevice)
+    build.add_c_artifact(&build_context, libavfilter)
+    build.add_c_artifact(&build_context, libavformat)
+    build.add_c_artifact(&build_context, libavutil)
+    build.add_c_artifact(&build_context, libswresample)
+    build.add_c_artifact(&build_context, libswscale)
+    build.add_c_artifact(&build_context, artifact_libmaker)
+    build.add_c_artifact(&build_context, artifact_test_media)
 
-    opts: Options
-    flags.parse_or_exit(&opts, os.args, .Odin)
+    build.add_c_target(&build_context, target_maker)
+    build.add_c_target(&build_context, target_test_media)
 
-    test_opts: Test_Options
-    if opts.command == .test {
-        err := flags.parse(&test_opts, opts.overflow[:], .Odin)
-        flags.print_errors(Test_Options, err, "", .Odin)
-    }
+    ctx := build.init_context()
+    defer build.dispose_context(ctx)
 
-    switch opts.command {
-    case .build:
-        build.compile_c_target(ctx, "maker", "maker") or_return
-
-    case .build_test:
-        build.compile_c_target(ctx, "test_media", "test_media") or_return
-
-    case .install:
+    build.add_command(&ctx, "install", proc(_: build.Context) {
         install_bindgen()
         install_ffmpeg()
+    })
 
-    case .bindgen:
-        build.exec(
-            {"vendors/odin-c-bindgen/build/bin/bindgen", "bindgen.sjson"},
+    build.add_command(&ctx, "build", proc(ctx: build.Context) {
+        build_ctx := cast(^build.C_Build_Context)ctx.user_data
+        build.compile_c_target(
+            build_ctx,
+            target_maker.name,
+            artifact_libmaker.name,
         )
-        build.exec(
-            {
-                "cp",
-                fmt.tprintf("target/%s/libmaker.dylib", PROFILE),
-                "../editor/vendors/maker/libmaker.dylib",
-            },
+        build.compile_c_target(
+            build_ctx,
+            target_test_media.name,
+            artifact_test_media.name,
         )
+    })
 
-    case .bear:
-        build.exec({"bear", "--", "../../_build", "build"})
+    build.add_command(&ctx, "bindgen", proc(ctx: build.Context) {
+        build_ctx := cast(^build.C_Build_Context)ctx.user_data
+        artifact, ok := build.get_c_artifact(build_ctx, "maker")
+        if ok {
+            err: os.Error
 
-    case .test:
-        build.compile_c_target(ctx, test_opts.name, test_opts.name) or_return
-        build.execute_c_target(ctx, test_opts.name) or_return
-
-    case .help:
-        b := strings.builder_make()
-
-        commands: [][]string = {
-            {"bear", "Generate compile_commands"},
-            {"bindgen", "Generate odin bindings"},
-            {"build", "Build libmaker.dylib"},
-            {"build:test", "Build tests"},
-            {"install", "Install dependencies (ffmpeg, odin-c-bindgen)"},
-            {"test", "Run test"},
-        }
-
-        for command in commands {
-            strings.write_string(
-                &b,
-                strings.left_justify(command[0], 10, " ") or_return,
+            catch_err :: proc(err: os.Error) {
+                if err != nil {
+                    fmt.panicf("%#v", err)
+                }
+            }
+            catch_err(
+                build.exec(
+                    "vendors/odin-c-bindgen/build/bin/bindgen bindgen.sjson",
+                ),
             )
-            strings.write_string(&b, "  ")
-            strings.write_string(&b, command[1])
-            strings.write_string(&b, "\n")
+            catch_err(build.ensure_dir("../editor/src/decoder"))
+            catch_err(
+                os.copy_file(
+                    fmt.tprintf(
+                        "../editor/src/decoder/%s",
+                        artifact_libmaker.target,
+                    ),
+                    fmt.tprintf(
+                        "%s/%s",
+                        artifact_libmaker.target_dir,
+                        artifact_libmaker.target,
+                    ),
+                ),
+            )
+        }
+    })
+
+    build.add_command(&ctx, "bear", proc(_: build.Context) {
+        build.exec("bear -- odin run build.odin -file -- build")
+    })
+
+    build.add_command(&ctx, "test", proc(ctx: build.Context) {
+        build_ctx := cast(^build.C_Build_Context)ctx.user_data
+        name := ctx.cli.flags["test"]
+
+        err: os.Error
+        err = build.compile_c_target(build_ctx, name, name)
+        if err != nil {
+            fmt.panicf("%#v", err)
         }
 
-        fmt.print(strings.to_string(b))
+        err = build.execute_c_target(build_ctx, name)
+        if err != nil {
+            fmt.panicf("%#v", err)
+        }
+    })
 
-    }
-
-    return nil
+    ctx.user_data = &build_context
+    build.run_context(ctx)
 }
 
 install_ffmpeg :: proc() -> os.Error {
