@@ -99,6 +99,20 @@ artifact_test_media :: b.C_Artifact {
     target_dir = TARGET_DIR,
 }
 
+artifact_test_decoder :: b.C_Artifact {
+    name       = "decoder",
+    type       = .Executable,
+    target     = "decoder.bin",
+    target_dir = TARGET_DIR,
+}
+
+artifact_test_custom_thread :: b.C_Artifact {
+    name       = "custom_thread",
+    type       = .Executable,
+    target     = "custom_thread.bin",
+    target_dir = TARGET_DIR,
+}
+
 // // Create static library
 // libmaker_artifact := b.C_Artifact {
 //     name             = "maker",
@@ -136,6 +150,7 @@ target_maker :: b.C_Target {
         "src/core/frame_queue.c",
         "src/core/video_frame.c",
         "src/core/media.c",
+        "src/core/media_info.c",
         "src/core/packet_queue.c",
         "src/core/pixel_format.c",
         "src/core/thread.c",
@@ -162,6 +177,20 @@ target_test_media :: b.C_Target {
     libraries = {"maker"},
 }
 
+target_test_decoder :: b.C_Target {
+    name      = "decoder",
+    flags     = CFLAGS,
+    sources   = {"tests/decoder.c"},
+    libraries = {"maker"},
+}
+
+target_test_custom_thread :: b.C_Target {
+    name      = "custom_thread",
+    flags     = CFLAGS,
+    sources   = {"tests/custom_thread.c"},
+    libraries = {"maker", "avcodec"},
+}
+
 main :: proc() {
     build_context: b.C_Build_Context
     build_context.command = "gcc"
@@ -175,9 +204,13 @@ main :: proc() {
     b.add_c_artifact(&build_context, libswscale)
     b.add_c_artifact(&build_context, artifact_libmaker)
     b.add_c_artifact(&build_context, artifact_test_media)
+    b.add_c_artifact(&build_context, artifact_test_decoder)
+    b.add_c_artifact(&build_context, artifact_test_custom_thread)
 
     b.add_c_target(&build_context, target_maker)
     b.add_c_target(&build_context, target_test_media)
+    b.add_c_target(&build_context, target_test_decoder)
+    b.add_c_target(&build_context, target_test_custom_thread)
 
     ctx: b.Context
     b.init_context(&ctx)
@@ -205,6 +238,16 @@ build :: proc(ctx: b.Context) {
         build_ctx,
         target_test_media.name,
         artifact_test_media.name,
+    )
+    b.compile_c_target(
+        build_ctx,
+        target_test_decoder.name,
+        artifact_test_decoder.name,
+    )
+    b.compile_c_target(
+        build_ctx,
+        target_test_custom_thread.name,
+        artifact_test_custom_thread.name,
     )
 }
 
@@ -244,6 +287,8 @@ bear :: proc(_: b.Context) {
 }
 
 test :: proc(ctx: b.Context) {
+    build(ctx)
+
     build_ctx := cast(^b.C_Build_Context)ctx.user_data
     name := ctx.cli.flags["test"]
 

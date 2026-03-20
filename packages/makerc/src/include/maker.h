@@ -23,7 +23,7 @@ typedef enum {
 } MakerTrackType;
 
 typedef enum {
-    MAKER_PIXEL_FORMAT_UNKNOWN = -1,
+    MAKER_PIXEL_FORMAT_UNKNOWN,
     MAKER_PIXEL_FORMAT_YUV420P,
     MAKER_PIXEL_FORMAT_RGBA,
     MAKER_PIXEL_FORMAT_RGB,
@@ -34,7 +34,7 @@ typedef struct {
     unsigned int     video_width;
     unsigned int     video_height;
     MakerPixelFormat video_format;
-} MakerMedia;
+} MakerMediaInfo;
 
 typedef struct {
     MakerPixelFormat format;
@@ -51,31 +51,33 @@ typedef struct {
     unsigned char    is_valid; /* boolean */
 } MakerVideoFrame;
 
-typedef void MakerDecoder;
+typedef struct {
+    void*         internal_state;
+    unsigned char is_initialized; /* boolean */
+} MakerDecoder;
 
 typedef struct {
     unsigned char use_playback;
     unsigned char use_threads;
+    char*         url;
     void (*thread_cb)(MakerStatus (*task)(MakerDecoder* decoder), MakerDecoder* decoder);
 } MakerDecoderDesc;
 
-extern MakerMedia* maker_media_open(char* url);
-extern void        maker_media_free(MakerMedia* media);
+extern MakerStatus maker_media_info_init(MakerMediaInfo* media, char* url);
+extern MakerStatus maker_media_info_uninit(MakerMediaInfo* media);
 
-extern MakerVideoFrame* maker_video_frame_alloc(MakerVideoFrameDesc desc);
-extern void             maker_video_frame_free(MakerVideoFrame* data);
-extern MakerStatus      maker_video_frame_init(MakerVideoFrame* data, MakerVideoFrameDesc desc);
-extern void             maker_video_frame_uninit(MakerVideoFrame* data);
-extern MakerStatus      maker_video_frame_save_pgm(MakerVideoFrame* target, char* output);
-extern MakerStatus      maker_video_frame_save_ppm(MakerVideoFrame* target, char* output);
+extern MakerStatus maker_video_frame_init(MakerVideoFrame* data, MakerVideoFrameDesc* desc);
+extern void        maker_video_frame_uninit(MakerVideoFrame* data);
+extern MakerStatus maker_video_frame_save_pgm(MakerVideoFrame* target, char* output);
+extern MakerStatus maker_video_frame_save_ppm(MakerVideoFrame* target, char* output);
 
-extern MakerDecoder* maker_decoder_alloc(char* url, MakerDecoderDesc desc);
-extern void          maker_decoder_free(MakerDecoder* decoder);
-extern MakerStatus   maker_decoder_start(MakerDecoder* decoder);
-extern MakerStatus   maker_decoder_stop(MakerDecoder* decoder);
-extern unsigned int  maker_decoder_get_video_frame(MakerDecoder* decoder, MakerVideoFrame* target);
-extern MakerStatus   maker_decoder_get_playback_time(MakerDecoder* decoder, unsigned int* time_ms);
-extern MakerStatus   maker_decoder_seek(MakerDecoder* decoder, unsigned long long seconds);
+extern MakerStatus maker_decoder_init(MakerDecoder* decoder, MakerDecoderDesc* desc);
+extern MakerStatus maker_decoder_uninit(MakerDecoder* decoder);
+extern MakerStatus maker_decoder_get_media_info(MakerDecoder* user_decoder, MakerMediaInfo* media);
+
+extern unsigned int maker_decoder_get_video_frame(MakerDecoder* decoder, MakerVideoFrame* target);
+extern MakerStatus  maker_decoder_get_playback_time(MakerDecoder* decoder, unsigned int* time_ms);
+extern MakerStatus  maker_decoder_seek(MakerDecoder* decoder, unsigned long long seconds);
 
 extern MakerStatus maker_decoder_demux(MakerDecoder* user_decoder);
 extern MakerStatus maker_decoder_decode_video(MakerDecoder* user_decoder);

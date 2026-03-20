@@ -83,8 +83,6 @@ MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerVi
     MAKER_CHECK(media);
     MAKER_CHECK(video_decoder);
 
-    MakerMediaInternal* internal_media = (MakerMediaInternal*)media;
-
     maker_clear(demuxer, sizeof(*demuxer));
     demuxer->format     = NULL;
     demuxer->packet     = NULL;
@@ -104,7 +102,7 @@ MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerVi
     }
 
     demuxer->video  = video_decoder;
-    demuxer->format = internal_media->format;
+    demuxer->format = media->format;
     demuxer->packet = packet;
     demuxer->signal = signal;
 

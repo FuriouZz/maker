@@ -213,18 +213,23 @@ extern void        maker_packet_queue_flush(MakerPacketQueue* queue);
 extern MakerStatus maker_packet_queue_put(MakerPacketQueue* queue, AVPacket* packet);
 extern i32         maker_packet_queue_get(MakerPacketQueue* queue, AVPacket* packet, bool should_block, i32* serial);
 
+/* ---- media_info.c ----
+ */
+
+extern MakerStatus maker_media_info_init_with_format(MakerMediaInfo* info, AVFormatContext* format);
+
 /* ---- media.c ----
  */
-typedef struct {
-    i32              streams[MAKER_TRACK_TYPE_COUNT];
-    u32              video_width;
-    u32              video_height;
-    MakerPixelFormat video_format;
 
-    /* hidden to user */
+typedef struct {
+    MakerMediaInfo   info;
     AVFormatContext* format;
-    char*            url;
-} MakerMediaInternal;
+    unsigned char    is_initialized; /* boolean */
+} MakerMedia;
+
+extern AVFormatContext* maker_media_create_context(char* url);
+extern MakerStatus      maker_media_init(MakerMedia* media, char* url);
+extern MakerStatus      maker_media_uninit(MakerMedia* media);
 
 /** ---- video_converter.c ----
  */
@@ -292,15 +297,11 @@ extern MakerStatus maker_demuxer_stop(MakerDemuxer* demuxer);
 typedef struct {
     MakerVideoDecoder video;
     MakerDemuxer      demuxer;
+    MakerMedia        media;
     MakerClock        clock;
-    MakerMedia*       media;
-    MakerThreadPool*  thread_pool;
     MakerDecoderDesc  desc;
+    MakerThreadPool*  thread_pool;
 } MakerDecoderInternal;
 
-typedef struct {
-    MakerDecoder* decoder;
-    MakerMedia*   media;
-} MakerJobData;
-
+extern MakerDecoderInternal* maker__decoder_internal(MakerDecoder* user_decoder);
 #endif

@@ -1,7 +1,6 @@
-#include "maker.h"
 #include "maker_internal.h"
 
-MakerMedia* maker_media_open(char* url)
+AVFormatContext* maker_media_create_context(char* url)
 {
     AVFormatContext* format = avformat_alloc_context();
     if (format == NULL) {
@@ -19,48 +18,46 @@ MakerMedia* maker_media_open(char* url)
         goto cleanup_context;
     }
 
-    MakerMediaInternal* media = maker_malloc_clear(sizeof(*media));
-    if (media == NULL) {
-        MAKER_OUT_OF_MEMORY;
-        goto cleanup_context;
-    }
-
-    media->format = format;
-    media->url    = url;
-    maker_memset(&media->streams, -1, MAKER_TRACK_TYPE_COUNT);
-
-    media->streams[MAKER_TRACK_TYPE_VIDEO]
-        = av_find_best_stream(format, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
-
-    media->streams[MAKER_TRACK_TYPE_AUDIO] = av_find_best_stream(
-        format, AVMEDIA_TYPE_AUDIO, -1, media->streams[MAKER_TRACK_TYPE_VIDEO],
-        NULL, 0
-    );
-
-    media->streams[MAKER_TRACK_TYPE_SUBTITLE] = av_find_best_stream(format, AVMEDIA_TYPE_SUBTITLE, -1, media->streams[MAKER_TRACK_TYPE_AUDIO], NULL, 0);
-
-    if (media->streams[MAKER_TRACK_TYPE_VIDEO] > -1) {
-        AVStream* stream    = format->streams[media->streams[MAKER_TRACK_TYPE_VIDEO]];
-        media->video_width  = stream->codecpar->width;
-        media->video_height = stream->codecpar->height;
-        media->video_format = maker_format_from_av_pixel_format(stream->codecpar->format);
-    }
-
-    return (MakerMedia*)media;
+    return format;
 
 cleanup_context:
     avformat_free_context(format);
-
     return NULL;
 }
 
-void maker_media_free(MakerMedia* user_media)
+MakerStatus maker_media_init(MakerMedia* media, char* url)
 {
-    if (user_media == NULL) return;
+    MAKER_CHECK(media);
 
-    MakerMediaInternal* media = (MakerMediaInternal*)user_media;
+    MakerStatus status;
+
+    AVFormatContext* format = maker_media_create_context(url);
+    if (format == NULL) {
+        goto cleanup;
+    }
+
+    status = maker_media_info_init_with_format(&media->info, format);
+    if (status != MAKER_STATUS_OK) {
+        goto cleanup;
+    }
+
+    media->format         = format;
+    media->is_initialized = TRUE;
+
+    return MAKER_STATUS_OK;
+
+cleanup:
+    maker_media_uninit(media);
+
+    return MAKER_STATUS_ERROR;
+}
+
+MakerStatus maker_media_uninit(MakerMedia* media)
+{
+    MAKER_CHECK(media);
 
     avformat_free_context(media->format);
-    maker_memset(&media->streams, -1, MAKER_TRACK_TYPE_COUNT);
-    maker_free(media);
+    media->is_initialized = FALSE;
+
+    return MAKER_STATUS_OK;
 }

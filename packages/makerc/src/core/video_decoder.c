@@ -5,8 +5,6 @@ MakerStatus maker_video_decoder_init(MakerVideoDecoder* video, MakerMedia* media
     MAKER_CHECK(video);
     MAKER_CHECK(media);
 
-    MakerMediaInternal* internal_media = (MakerMediaInternal*)media;
-
     maker_clear(video, sizeof(*video));
 
     video->codec     = NULL;
@@ -14,8 +12,8 @@ MakerStatus maker_video_decoder_init(MakerVideoDecoder* video, MakerMedia* media
     video->frame     = NULL;
     video->packet    = NULL;
 
-    u32                stream_index = internal_media->streams[MAKER_TRACK_TYPE_VIDEO];
-    AVFormatContext*   format       = internal_media->format;
+    u32                stream_index = media->info.streams[MAKER_TRACK_TYPE_VIDEO];
+    AVFormatContext*   format       = media->format;
     AVStream*          stream       = format->streams[stream_index];
     AVCodecParameters* params       = stream->codecpar;
 
