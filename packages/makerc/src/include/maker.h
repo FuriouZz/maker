@@ -60,7 +60,7 @@ typedef struct {
     unsigned char use_playback;
     unsigned char use_threads;
     char*         url;
-    void (*thread_cb)(MakerStatus (*task)(MakerDecoder* decoder), MakerDecoder* decoder);
+    void (*thread_cb)(MakerStatus (*task)(void* decoder), void* decoder);
 } MakerDecoderDesc;
 
 extern MakerStatus maker_media_info_init(MakerMediaInfo* media, char* url);
@@ -78,8 +78,5 @@ extern MakerStatus maker_decoder_get_media_info(MakerDecoder* user_decoder, Make
 extern unsigned int maker_decoder_get_video_frame(MakerDecoder* decoder, MakerVideoFrame* target);
 extern MakerStatus  maker_decoder_get_playback_time(MakerDecoder* decoder, unsigned int* time_ms);
 extern MakerStatus  maker_decoder_seek(MakerDecoder* decoder, unsigned long long seconds);
-
-extern MakerStatus maker_decoder_demux(MakerDecoder* user_decoder);
-extern MakerStatus maker_decoder_decode_video(MakerDecoder* user_decoder);
 
 #endif

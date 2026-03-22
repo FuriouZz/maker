@@ -1,3 +1,4 @@
+#include "maker.h"
 #include "maker_internal.h"
 
 MakerStatus maker_mutex_init(MakerMutex* mutex)
@@ -144,4 +145,67 @@ MakerStatus maker_thread_wait(MakerThread* thread)
     pthread_join(thread->handle, 0);
 
     return MAKER_STATUS_OK;
+}
+
+MakerStatus maker_barrier_init(MakerBarrier* barrier, i32 thread_count)
+{
+    MAKER_CHECK(barrier);
+
+    MakerStatus status;
+    status = maker_mutex_init(&barrier->lock);
+    if (status != MAKER_STATUS_OK) {
+        goto fail;
+    }
+
+    status = maker_cond_init(&barrier->signal);
+    if (status != MAKER_STATUS_OK) {
+        goto cleanup;
+    }
+
+    barrier->thread_count  = thread_count;
+    barrier->generation_id = 0;
+    barrier->index         = 0;
+
+    return MAKER_STATUS_OK;
+
+cleanup:
+    maker_mutex_uninit(&barrier->lock);
+
+fail:
+    return status;
+}
+
+MakerStatus maker_barrier_uninit(MakerBarrier* barrier)
+{
+    MAKER_CHECK(barrier);
+    maker_mutex_uninit(&barrier->lock);
+    maker_cond_uninit(&barrier->signal);
+    maker_clear(barrier, sizeof(*barrier));
+    return MAKER_STATUS_OK;
+}
+
+bool maker_barrier_wait(MakerBarrier* barrier)
+{
+    MAKER_ASSERT(barrier);
+
+    maker_mutex_lock(&barrier->lock);
+
+    barrier->index += 1;
+
+    i32 local_gen = barrier->generation_id;
+
+    if (barrier->index < barrier->thread_count) {
+        while (local_gen == barrier->generation_id && barrier->index < barrier->thread_count) {
+            maker_cond_wait(&barrier->signal, &barrier->lock);
+        }
+        return FALSE;
+    }
+
+    barrier->index = 0;
+    barrier->generation_id += 1;
+
+    maker_cond_broadcast(&barrier->signal);
+    maker_mutex_unlock(&barrier->lock);
+
+    return TRUE;
 }

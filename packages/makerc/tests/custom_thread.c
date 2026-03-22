@@ -5,7 +5,7 @@
 
 MakerThreadPool pool = { 0 };
 
-void create_task(MakerStatus (*task)(MakerDecoder* decoder), MakerDecoder* decoder)
+void create_task(MakerStatus (*task)(void* decoder), void* decoder)
 {
     printf("Create task\n");
     maker_thread_pool_queue_job(&pool, (MakerStatus (*)(void*))task, decoder);

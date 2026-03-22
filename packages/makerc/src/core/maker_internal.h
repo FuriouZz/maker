@@ -120,6 +120,14 @@ typedef struct {
     MakerStatus         status;
 } MakerThread;
 
+typedef struct {
+    MakerMutex lock;
+    MakerCond  signal;
+    i32        index;
+    i32        generation_id;
+    i32        thread_count;
+} MakerBarrier;
+
 extern MakerStatus maker_mutex_init(MakerMutex* mutex);
 extern void        maker_mutex_uninit(MakerMutex* mutex);
 extern MakerStatus maker_mutex_lock(MakerMutex* mutex);
@@ -134,6 +142,10 @@ extern MakerStatus maker_cond_timedwait(MakerCond* signal, MakerMutex* mutex, i3
 
 extern MakerStatus maker_thread_init(MakerThread* thread);
 extern MakerStatus maker_thread_wait(MakerThread* thread);
+
+extern MakerStatus maker_barrier_init(MakerBarrier* barrier, i32 thread_count);
+extern MakerStatus maker_barrier_uninit(MakerBarrier* barrier);
+extern bool        maker_barrier_wait(MakerBarrier* barrier);
 
 /* ---- thread_pool.c ----
  */
@@ -171,14 +183,14 @@ typedef struct {
 } MakerFrameQueueItem;
 
 typedef struct {
-    MakerFrameQueueItem items[16];
-    MakerMutex          lock;
-    MakerCond           new_item_signal;
-    u32                 frame_count;
-    u32                 max_frame_count;
-    u32                 read_index;
-    u32                 write_index;
-    bool                is_read_index_shown;
+    MakerFrameQueueItem* items;
+    MakerMutex           lock;
+    MakerCond            new_item_signal;
+    u32                  frame_count;
+    u32                  max_frame_count;
+    u32                  read_index;
+    u32                  write_index;
+    bool                 is_read_index_shown;
 } MakerFrameQueue;
 
 extern MakerStatus          maker_frame_queue_init(MakerFrameQueue* queue, u32 frame_count);
@@ -288,6 +300,7 @@ typedef struct {
 
 extern MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerVideoDecoder* video_decoder);
 extern void        maker_demuxer_uninit(MakerDemuxer* demuxer);
+extern void        maker_demuxer_setup(MakerDemuxer* demuxer);
 extern MakerStatus maker_demuxer_start(MakerDemuxer* demuxer, MakerDemuxerOptions* options);
 extern MakerStatus maker_demuxer_stop(MakerDemuxer* demuxer);
 
@@ -296,6 +309,7 @@ extern MakerStatus maker_demuxer_stop(MakerDemuxer* demuxer);
 
 typedef struct {
     MakerVideoDecoder video;
+    MakerBarrier      barrier;
     MakerDemuxer      demuxer;
     MakerMedia        media;
     MakerClock        clock;

@@ -208,12 +208,7 @@ MakerStatus maker_video_decoder_start(MakerVideoDecoder* video, MakerVideoDecode
     MAKER_CHECK(video);
 
     bool expected = TRUE;
-    if (MAKER_ATOMIC_COMPARE_EXCHANGE(
-            &video->is_aborted,
-            &expected,
-            FALSE
-        )
-        == FALSE) {
+    if (MAKER_ATOMIC_COMPARE_EXCHANGE(&video->is_aborted, &expected, FALSE) == FALSE) {
         return MAKER_STATUS_BUSY;
     }
 
@@ -225,12 +220,7 @@ MakerStatus maker_video_decoder_stop(MakerVideoDecoder* video)
     MAKER_CHECK(video);
 
     bool expected = FALSE;
-    if (MAKER_ATOMIC_COMPARE_EXCHANGE(
-            &video->is_aborted,
-            &expected,
-            TRUE
-        )
-        == FALSE) {
+    if (MAKER_ATOMIC_COMPARE_EXCHANGE(&video->is_aborted, &expected, TRUE) == FALSE) {
         return MAKER_STATUS_OK;
     }
 

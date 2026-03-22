@@ -13,7 +13,12 @@ MakerStatus maker_frame_queue_init(MakerFrameQueue* queue, u32 frame_count)
         goto cleanup_mutex;
     }
 
-    for (u32 i = 0; i < 16; i++) {
+    queue->items = maker_malloc_clear(sizeof(AVFrame) * frame_count);
+    if (queue->items == NULL) {
+        goto cleanup_cond;
+    }
+
+    for (u32 i = 0; i < frame_count; i++) {
         AVFrame* frame = av_frame_alloc();
         if (frame == NULL) {
             MAKER_OUT_OF_MEMORY;
@@ -27,11 +32,11 @@ MakerStatus maker_frame_queue_init(MakerFrameQueue* queue, u32 frame_count)
     return MAKER_STATUS_OK;
 
 cleanup_frames:
-    for (u32 i = 0; i < 16; i++) {
+    for (u32 i = 0; i < frame_count; i++) {
         av_frame_free(&queue->items[i].frame);
     }
 
-    // cleanup_cond:
+cleanup_cond:
     maker_cond_uninit(&queue->new_item_signal);
 
 cleanup_mutex:
@@ -45,7 +50,7 @@ void maker_frame_queue_uninit(MakerFrameQueue* queue)
 {
     if (queue == NULL) return;
 
-    for (u32 i = 0; i < 16; i++) {
+    for (u32 i = 0; i < queue->max_frame_count; i++) {
         av_frame_free(&queue->items[i].frame);
     }
 

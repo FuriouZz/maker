@@ -7,19 +7,22 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptio
 {
     MAKER_CHECK(demuxer);
 
-    MakerVideoDecoder* video     = demuxer->video;
-    AVPacket*          packet    = demuxer->packet;
-    AVFormatContext*   format    = demuxer->format;
-    MakerStatus        status    = MAKER_STATUS_ERROR;
-    i32                ret       = 0;
-    MakerMutex         lock      = { 0 };
-    u32                remaining = 0;
+    MakerVideoDecoder* video             = demuxer->video;
+    AVPacket*          packet            = demuxer->packet;
+    AVFormatContext*   format            = demuxer->format;
+    MakerStatus        status            = MAKER_STATUS_OK;
+    i32                ret               = 0;
+    MakerMutex         lock              = { 0 };
+    u32                video_frame_count = 0;
+    bool               auto_stop         = FALSE;
 
     if (options != NULL) {
-        remaining = options->video_frame_count;
+        video_frame_count = options->video_frame_count;
+        auto_stop         = TRUE;
     }
 
-    if (maker_mutex_init(&lock) != MAKER_STATUS_OK) {
+    status = maker_mutex_init(&lock);
+    if (status != MAKER_STATUS_OK) {
         goto the_end;
     }
 
@@ -56,21 +59,24 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptio
 
         if (packet->stream_index == video->stream_index) {
             MAKER_LOG_DEBUG("Put video packet");
-            if (maker_packet_queue_put(&video->packet_queue, packet) != MAKER_STATUS_OK) {
+            status = maker_packet_queue_put(&video->packet_queue, packet);
+            if (status != MAKER_STATUS_OK) {
                 MAKER_LOG_ERROR("Cannot write packet");
+                goto cleanup;
             }
 
-            if (remaining > 0) {
-                remaining--;
-                if (remaining == 0) break;
+            if (video_frame_count > 0) {
+                video_frame_count--;
             }
+        }
+
+        if (auto_stop && video_frame_count == 0) {
+            break;
         }
     }
 
-    MAKER_ATOMIC_STORE(&demuxer->is_aborted, FALSE);
-
-    status = MAKER_STATUS_OK;
-
+cleanup:
+    MAKER_ATOMIC_STORE(&demuxer->is_aborted, TRUE);
     maker_mutex_uninit(&lock);
 
 the_end:
@@ -128,6 +134,15 @@ void maker_demuxer_uninit(MakerDemuxer* demuxer)
     demuxer->is_aborted = TRUE;
 }
 
+void maker_demuxer_setup(MakerDemuxer* demuxer)
+{
+    MAKER_ASSERT(demuxer);
+
+    if (demuxer->video != NULL && demuxer->video->is_aborted) {
+        maker_packet_queue_start(&demuxer->video->packet_queue);
+    }
+}
+
 MakerStatus maker_demuxer_start(MakerDemuxer* demuxer, MakerDemuxerOptions* options)
 {
     MAKER_CHECK(demuxer);
@@ -137,9 +152,6 @@ MakerStatus maker_demuxer_start(MakerDemuxer* demuxer, MakerDemuxerOptions* opti
         return MAKER_STATUS_BUSY;
     }
 
-    if (demuxer->video != NULL) {
-        maker_packet_queue_start(&demuxer->video->packet_queue);
-    }
     return maker__demuxer_demux(demuxer, options);
 }
 

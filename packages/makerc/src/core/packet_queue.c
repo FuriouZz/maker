@@ -109,6 +109,10 @@ MakerStatus maker_packet_queue_put(MakerPacketQueue* queue, AVPacket* packet)
     MAKER_ASSERT(queue);
     MAKER_ASSERT(packet);
 
+    if (queue->is_aborted) {
+        return MAKER_STATUS_ERROR;
+    }
+
     MakerStatus ret;
     AVPacket*   tmp = av_packet_alloc();
     if (tmp == NULL) {
