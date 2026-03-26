@@ -7,12 +7,21 @@ int main(void)
 {
     printf("%s\n", MAKER_VERSION);
 
+    MakerContext context = { 0 };
+    maker_context_init(
+        &context,
+        &(MakerContextDesc) {
+            .thread_count = 2,
+            .use_threads  = 1,
+        }
+    );
+
     MakerDecoder decoder = { 0 };
     maker_decoder_init(
         &decoder,
+        &context,
         &(MakerDecoderDesc) {
-            .url         = "./tests/video.mp4",
-            .use_threads = 1,
+            .url = "./tests/video.mp4",
         }
     );
 
@@ -31,11 +40,7 @@ int main(void)
         }
     );
 
-    printf("sleep 1s...\n");
-    sleep(2);
-    printf("sleep complete\n");
-
-    maker_decoder_get_video_frame(&decoder, &frame);
+    maker_decoder_get_video_frame(&decoder, &frame, 1);
 
     printf("Save pgm\n");
     maker_video_frame_save_pgm(&frame, "tmp/image.pgm");
@@ -48,6 +53,9 @@ int main(void)
 
     printf("free decoder\n");
     maker_decoder_uninit(&decoder);
+
+    printf("free context\n");
+    maker_context_uninit(&context);
 
     return 0;
 }

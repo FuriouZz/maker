@@ -1,5 +1,4 @@
 #include "maker_internal.h"
-#include <stdio.h>
 
 static MakerStatus maker__can_read_job(AVFifo* fifo, MakerThreadPoolJob* job, MakerMutex* mutex, MakerCond* signal, bool* is_aborted)
 {

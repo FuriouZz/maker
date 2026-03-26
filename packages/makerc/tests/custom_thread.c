@@ -8,7 +8,7 @@ MakerThreadPool pool = { 0 };
 void create_task(MakerStatus (*task)(void* decoder), void* decoder)
 {
     printf("Create task\n");
-    maker_thread_pool_queue_job(&pool, (MakerStatus (*)(void*))task, decoder);
+    maker_thread_pool_queue_job(&pool, task, decoder);
 }
 
 int main(void)
@@ -17,13 +17,22 @@ int main(void)
 
     maker_thread_pool_init(&pool, 2);
 
+    MakerContext context = { 0 };
+    maker_context_init(
+        &context,
+        &(MakerContextDesc) {
+            .use_threads   = 1,
+            .thread_count  = 2,
+            .create_worker = create_task,
+        }
+    );
+
     MakerDecoder decoder = { 0 };
     maker_decoder_init(
         &decoder,
+        &context,
         &(MakerDecoderDesc) {
-            .url         = "./tests/video.mp4",
-            .use_threads = 1,
-            .thread_cb   = create_task,
+            .url = "./tests/video.mp4",
         }
     );
 
@@ -40,11 +49,7 @@ int main(void)
         }
     );
 
-    printf("sleep 1s...\n");
-    sleep(1);
-    printf("sleep complete\n");
-
-    maker_decoder_get_video_frame(&decoder, &image);
+    maker_decoder_get_video_frame(&decoder, &image, 1);
 
     printf("Save pgm\n");
     maker_video_frame_save_pgm(&image, "tmp/image.pgm");

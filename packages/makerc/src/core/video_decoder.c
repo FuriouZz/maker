@@ -55,7 +55,7 @@ MakerStatus maker_video_decoder_init(MakerVideoDecoder* video, MakerMedia* media
         goto cleanup_frame;
     }
 
-    if (maker_frame_queue_init(&video->frame_queue, 16) != MAKER_STATUS_OK) {
+    if (maker_frame_queue_init(&video->frame_queue, &video->packet_queue, 16) != MAKER_STATUS_OK) {
         goto cleanup_packet_queue;
     }
 
@@ -172,7 +172,7 @@ static MakerStatus maker__video_decoder_decode(MakerVideoDecoder* video, MakerVi
 
     u32 remaining_frame_count = 0;
     if (options != NULL) {
-        remaining_frame_count = options->max_count;
+        remaining_frame_count = options->frame_count;
     }
 
     for (;;) {
@@ -181,7 +181,7 @@ static MakerStatus maker__video_decoder_decode(MakerVideoDecoder* video, MakerVi
         if (result < 0) break;
         if (result == 0) continue;
 
-        MakerFrameQueueItem* item = maker_frame_queue_peek_writable(&video->frame_queue, is_aborted);
+        MakerFrameQueueItem* item = maker_frame_queue_peek_writable(&video->frame_queue);
         if (item == NULL) {
             MAKER_LOG_WARN("Failed to peek writable frame");
             break;

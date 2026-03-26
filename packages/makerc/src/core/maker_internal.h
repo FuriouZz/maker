@@ -99,9 +99,10 @@ extern MakerPixelFormat   maker_format_from_av_pixel_format(enum AVPixelFormat p
 #define MAKER_UNUSED(v) (void)(v)
 
 #define MAKER_ATOMIC_COMPARE_EXCHANGE(Ptr, Expected, Desired) \
-    __atomic_compare_exchange_n(Ptr, Expected, Desired, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
-#define MAKER_ATOMIC_LOAD(Ptr) __atomic_load_n(Ptr, __ATOMIC_SEQ_CST)
-#define MAKER_ATOMIC_STORE(Ptr, Value) __atomic_store_n(Ptr, Value, __ATOMIC_SEQ_CST)
+    __atomic_compare_exchange_n((Ptr), (Expected), (Desired), 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
+#define MAKER_ATOMIC_LOAD(Ptr) __atomic_load_n((Ptr), __ATOMIC_SEQ_CST)
+#define MAKER_ATOMIC_STORE(Ptr, Value) __atomic_store_n((Ptr), (Value), __ATOMIC_SEQ_CST)
+#define MAKER_ATOMIC_ADD(Ptr, Value) __atomic_add_fetch((Ptr), (Value), __ATOMIC_SEQ_CST)
 
 extern void  maker_log(u32 code, char* message, u32 line, char* filename);
 extern char* maker_format(char* format, ...);
@@ -175,32 +176,6 @@ extern void             maker_thread_pool_uninit(MakerThreadPool* pool);
 extern MakerStatus      maker_thread_pool_queue_job(MakerThreadPool* pool, MakerStatus (*user_job)(void* user_data), void* user_data);
 extern i32              maker_thread_pool_job_count(MakerThreadPool* pool);
 
-/* ---- frame_queue.c ----
- */
-
-typedef struct {
-    AVFrame* frame;
-} MakerFrameQueueItem;
-
-typedef struct {
-    MakerFrameQueueItem* items;
-    MakerMutex           lock;
-    MakerCond            new_item_signal;
-    u32                  frame_count;
-    u32                  max_frame_count;
-    u32                  read_index;
-    u32                  write_index;
-    bool                 is_read_index_shown;
-} MakerFrameQueue;
-
-extern MakerStatus          maker_frame_queue_init(MakerFrameQueue* queue, u32 frame_count);
-extern void                 maker_frame_queue_uninit(MakerFrameQueue* queue);
-extern MakerFrameQueueItem* maker_frame_queue_peek_readable(MakerFrameQueue* queue, bool* is_aborted);
-extern MakerFrameQueueItem* maker_frame_queue_peek_writable(MakerFrameQueue* queue, bool* is_aborted);
-extern void                 maker_frame_queue_push_writable(MakerFrameQueue* queue);
-extern void                 maker_frame_queue_pop_readable(MakerFrameQueue* queue);
-extern MakerFrameQueueItem* maker_frame_queue_peek_last(MakerFrameQueue* queue);
-
 /* ---- packet_queue.c ----
  */
 typedef struct {
@@ -224,6 +199,33 @@ extern void        maker_packet_queue_stop(MakerPacketQueue* queue);
 extern void        maker_packet_queue_flush(MakerPacketQueue* queue);
 extern MakerStatus maker_packet_queue_put(MakerPacketQueue* queue, AVPacket* packet);
 extern i32         maker_packet_queue_get(MakerPacketQueue* queue, AVPacket* packet, bool should_block, i32* serial);
+
+/* ---- frame_queue.c ----
+ */
+
+typedef struct {
+    AVFrame* frame;
+} MakerFrameQueueItem;
+
+typedef struct {
+    MakerFrameQueueItem* items;
+    MakerMutex           lock;
+    MakerCond            new_item_signal;
+    MakerPacketQueue*    packet_queue;
+    u32                  frame_count;
+    u32                  max_frame_count;
+    u32                  read_index;
+    u32                  write_index;
+    bool                 is_read_index_shown;
+} MakerFrameQueue;
+
+extern MakerStatus          maker_frame_queue_init(MakerFrameQueue* queue, MakerPacketQueue* packet_queue, u32 frame_count);
+extern void                 maker_frame_queue_uninit(MakerFrameQueue* queue);
+extern MakerFrameQueueItem* maker_frame_queue_peek_readable(MakerFrameQueue* queue);
+extern MakerFrameQueueItem* maker_frame_queue_peek_writable(MakerFrameQueue* queue);
+extern void                 maker_frame_queue_push_writable(MakerFrameQueue* queue);
+extern void                 maker_frame_queue_pop_readable(MakerFrameQueue* queue);
+extern MakerFrameQueueItem* maker_frame_queue_peek_last(MakerFrameQueue* queue);
 
 /* ---- media_info.c ----
  */
@@ -271,7 +273,7 @@ typedef struct {
 } MakerVideoDecoder;
 
 typedef struct {
-    u32 max_count;
+    u32 frame_count;
 } MakerVideoDecoderOptions;
 
 extern MakerStatus maker_video_decoder_init(MakerVideoDecoder* video, MakerMedia* media);
@@ -304,18 +306,42 @@ extern void        maker_demuxer_setup(MakerDemuxer* demuxer);
 extern MakerStatus maker_demuxer_start(MakerDemuxer* demuxer, MakerDemuxerOptions* options);
 extern MakerStatus maker_demuxer_stop(MakerDemuxer* demuxer);
 
+/* ---- wait_group.c ----
+ */
+typedef struct {
+    MakerMutex lock;
+    MakerCond  signal;
+    u32        counter;
+} MakerWaitGroup;
+
+extern MakerStatus maker_wait_group_init(MakerWaitGroup* group);
+extern MakerStatus maker_wait_group_uninit(MakerWaitGroup* group);
+extern void        maker_wait_group_add(MakerWaitGroup* group, u32 value);
+extern void        maker_wait_group_wait(MakerWaitGroup* group);
+extern void        maker_wait_group_done(MakerWaitGroup* group);
+
 /* ---- decoder.c ----
  */
 
 typedef struct {
     MakerVideoDecoder video;
-    MakerBarrier      barrier;
     MakerDemuxer      demuxer;
     MakerMedia        media;
     MakerClock        clock;
     MakerDecoderDesc  desc;
-    MakerThreadPool*  thread_pool;
+    MakerContext*     context;
+    bool              aborted;
 } MakerDecoderInternal;
 
 extern MakerDecoderInternal* maker__decoder_internal(MakerDecoder* user_decoder);
+
+/* ---- context.c ----
+ */
+
+typedef struct {
+    MakerThreadPool  thread_pool;
+    MakerContextDesc desc;
+} MakerContextInternal;
+
+extern MakerContextInternal* maker__context_internal(MakerContext* user_context);
 #endif

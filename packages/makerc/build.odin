@@ -144,6 +144,7 @@ target_maker :: b.C_Target {
     flags     = CFLAGS,
     sources   = {
         "src/core/clock.c",
+        "src/core/context.c",
         "src/core/decoder.c",
         "src/core/demuxer.c",
         "src/core/error.c",
@@ -158,6 +159,7 @@ target_maker :: b.C_Target {
         "src/core/util.c",
         "src/core/video_converter.c",
         "src/core/video_decoder.c",
+        "src/core/wait_group.c",
     },
     libraries = {
         "avcodec",

@@ -1,3 +1,4 @@
+#include "maker.h"
 #include "maker_internal.h"
 
 MakerStatus maker_video_frame_init(MakerVideoFrame* frame, MakerVideoFrameDesc* desc)
@@ -32,14 +33,14 @@ MakerStatus maker_video_frame_init(MakerVideoFrame* frame, MakerVideoFrameDesc* 
     return 0;
 }
 
-void maker_video_frame_uninit(MakerVideoFrame* data)
+MakerStatus maker_video_frame_uninit(MakerVideoFrame* data)
 {
-    if (data == NULL) return;
+    MAKER_CHECK(data);
 
     maker_free(data->buffer);
+    maker_clear(data, sizeof(*data));
 
-    data->buffer_size = 0;
-    data->is_valid    = FALSE;
+    return MAKER_STATUS_OK;
 }
 
 MakerStatus maker_video_frame_save_pgm(MakerVideoFrame* target, char* output)

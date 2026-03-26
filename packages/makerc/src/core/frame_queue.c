@@ -1,8 +1,9 @@
 #include "maker_internal.h"
 
-MakerStatus maker_frame_queue_init(MakerFrameQueue* queue, u32 frame_count)
+MakerStatus maker_frame_queue_init(MakerFrameQueue* queue, MakerPacketQueue* packet_queue, u32 frame_count)
 {
     MAKER_CHECK(queue);
+    MAKER_CHECK(packet_queue);
 
     maker_clear(queue, sizeof(*queue));
 
@@ -28,6 +29,7 @@ MakerStatus maker_frame_queue_init(MakerFrameQueue* queue, u32 frame_count)
     }
 
     queue->max_frame_count = frame_count;
+    queue->packet_queue    = packet_queue;
 
     return MAKER_STATUS_OK;
 
@@ -58,12 +60,14 @@ void maker_frame_queue_uninit(MakerFrameQueue* queue)
     maker_mutex_uninit(&queue->lock);
 }
 
-MakerFrameQueueItem* maker_frame_queue_peek_readable(MakerFrameQueue* queue, bool* is_aborted)
+MakerFrameQueueItem* maker_frame_queue_peek_readable(MakerFrameQueue* queue)
 {
     if (queue == NULL) {
         MAKER_LOG_WARN("Invalid value");
         return NULL;
     }
+
+    bool* is_aborted = &queue->packet_queue->is_aborted;
 
     maker_mutex_lock(&queue->lock);
     while (queue->frame_count <= 0 && *is_aborted == FALSE) {
@@ -78,12 +82,14 @@ MakerFrameQueueItem* maker_frame_queue_peek_readable(MakerFrameQueue* queue, boo
     return &queue->items[queue->read_index % queue->max_frame_count];
 }
 
-MakerFrameQueueItem* maker_frame_queue_peek_writable(MakerFrameQueue* queue, bool* is_aborted)
+MakerFrameQueueItem* maker_frame_queue_peek_writable(MakerFrameQueue* queue)
 {
     if (queue == NULL) {
         MAKER_LOG_WARN("Invalid value");
         return NULL;
     }
+
+    bool* is_aborted = &queue->packet_queue->is_aborted;
 
     maker_mutex_lock(&queue->lock);
     while (queue->frame_count >= queue->max_frame_count && *is_aborted == FALSE) {

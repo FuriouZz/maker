@@ -1,7 +1,4 @@
-#include "libavformat/avformat.h"
-#include "maker.h"
 #include "maker_internal.h"
-#include <stdint.h>
 
 static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptions* options)
 {

@@ -1,4 +1,3 @@
-#include "maker.h"
 #include "maker_internal.h"
 
 MakerStatus maker_mutex_init(MakerMutex* mutex)
@@ -192,20 +191,23 @@ bool maker_barrier_wait(MakerBarrier* barrier)
 
     barrier->index += 1;
 
-    i32 local_gen = barrier->generation_id;
+    i32  local_gen = barrier->generation_id;
+    bool is_leader = FALSE;
 
     if (barrier->index < barrier->thread_count) {
         while (local_gen == barrier->generation_id && barrier->index < barrier->thread_count) {
             maker_cond_wait(&barrier->signal, &barrier->lock);
         }
-        return FALSE;
+        goto end;
     }
 
     barrier->index = 0;
     barrier->generation_id += 1;
 
     maker_cond_broadcast(&barrier->signal);
-    maker_mutex_unlock(&barrier->lock);
+    is_leader = TRUE;
 
-    return TRUE;
+end:
+    maker_mutex_unlock(&barrier->lock);
+    return is_leader;
 }
