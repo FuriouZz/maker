@@ -11,7 +11,7 @@ int main(void)
     maker_context_init(
         &context,
         &(MakerContextDesc) {
-            .thread_count = 2,
+            .thread_count = 1,
             .use_threads  = 1,
         }
     );

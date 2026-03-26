@@ -1,3 +1,4 @@
+#include "maker.h"
 #include "maker_internal.h"
 
 static MakerStatus maker__can_read_job(AVFifo* fifo, MakerThreadPoolJob* job, MakerMutex* mutex, MakerCond* signal, bool* is_aborted)
@@ -165,12 +166,9 @@ MakerStatus maker_thread_pool_queue_job(MakerThreadPool* pool, MakerStatus (*use
     MAKER_CHECK(pool);
     MAKER_CHECK(user_job);
 
-    i32 count = av_fifo_can_write(pool->context.job_queue);
-    if (count == 0) {
-        MAKER_LOG_INFO("No job available");
-        return MAKER_STATUS_BUSY;
-    }
+    MakerStatus status = MAKER_STATUS_OK;
 
+    maker_mutex_lock(&pool->context.lock);
     if (av_fifo_write(
             pool->context.job_queue,
             &(MakerThreadPoolJob) {
@@ -181,12 +179,15 @@ MakerStatus maker_thread_pool_queue_job(MakerThreadPool* pool, MakerStatus (*use
         )
         != 0) {
         MAKER_LOG_INFO("Failed to queue job.");
-        return MAKER_STATUS_ERROR;
+        status = MAKER_STATUS_ERROR;
+        goto end;
     }
 
     maker_cond_broadcast(&pool->context.new_job_signal);
 
-    return MAKER_STATUS_OK;
+end:
+    maker_mutex_unlock(&pool->context.lock);
+    return status;
 }
 
 i32 maker_thread_pool_job_count(MakerThreadPool* pool)

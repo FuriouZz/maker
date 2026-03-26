@@ -18,8 +18,8 @@ MakerStatus maker_context_init(MakerContext* user_context, MakerContextDesc* des
     }
 
     memcpy(&context->desc, desc, sizeof(*desc));
-    if (desc->thread_count < 2) {
-        desc->thread_count = 2;
+    if (context->desc.thread_count < 1) {
+        context->desc.thread_count = 1;
     }
 
     if (context->desc.create_worker == NULL) {
