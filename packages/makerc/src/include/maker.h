@@ -12,7 +12,6 @@
 typedef enum {
     MAKER_STATUS_ERROR = -1,
     MAKER_STATUS_OK,
-    MAKER_STATUS_BUSY,
 } MakerStatus;
 
 typedef enum {
@@ -81,10 +80,9 @@ extern MakerStatus maker_video_frame_uninit(MakerVideoFrame* data);
 extern MakerStatus maker_video_frame_save_pgm(MakerVideoFrame* target, char* output);
 extern MakerStatus maker_video_frame_save_ppm(MakerVideoFrame* target, char* output);
 
-extern MakerStatus maker_decoder_init(MakerDecoder* decoder, MakerDecoderDesc* desc);
-extern MakerStatus maker_decoder_uninit(MakerDecoder* decoder);
-extern MakerStatus maker_decoder_get_media_info(MakerDecoder* decoder, MakerMediaInfo* info);
-
+extern MakerStatus  maker_decoder_init(MakerDecoder* decoder, MakerDecoderDesc* desc);
+extern MakerStatus  maker_decoder_uninit(MakerDecoder* decoder);
+extern MakerStatus  maker_decoder_get_media_info(MakerDecoder* decoder, MakerMediaInfo* info);
 extern unsigned int maker_decoder_get_video_frame(MakerDecoder* decoder, MakerVideoFrame* target);
 extern MakerStatus  maker_decoder_get_playback_time(MakerDecoder* decoder, unsigned int* time_ms);
 extern MakerStatus  maker_decoder_seek(MakerDecoder* decoder, unsigned long long seconds);

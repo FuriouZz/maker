@@ -208,7 +208,8 @@ MakerStatus maker_video_decoder_start(MakerVideoDecoder* video, MakerVideoDecode
 
     bool expected = TRUE;
     if (MAKER_ATOMIC_COMPARE_EXCHANGE(&video->is_aborted, &expected, FALSE) == FALSE) {
-        return MAKER_STATUS_BUSY;
+        MAKER_LOG_DEBUG("Video decoder is busy.");
+        return MAKER_STATUS_OK;
     }
 
     return maker__video_decoder_decode(video, options);

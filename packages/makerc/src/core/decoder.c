@@ -195,7 +195,8 @@ MakerStatus maker_decoder_seek(MakerDecoder* user_decoder, u64 timestamp)
     MakerDemuxer*         demuxer = &decoder->demuxer;
 
     if (demuxer->needs_seek) {
-        return MAKER_STATUS_BUSY;
+        MAKER_LOG_DEBUG("Decoder is already seeking.");
+        return MAKER_STATUS_OK;
     }
 
     demuxer->needs_seek     = TRUE;

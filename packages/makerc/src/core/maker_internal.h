@@ -91,10 +91,10 @@ extern MakerPixelFormat   maker_format_from_av_pixel_format(enum AVPixelFormat p
 #define MAKER_PANIC(message) maker_log(4, message, __LINE__, MAKER_FILE)
 
 #define MAKER_OUT_OF_MEMORY MAKER_LOG_ERROR("Out of memory")
-#define MAKER_CHECK(v)                   \
-    if ((v) == 0) {                      \
-        MAKER_LOG_WARN("Invalid value"); \
-        return MAKER_STATUS_ERROR;       \
+#define MAKER_CHECK(v)                       \
+    if ((v) == 0) {                          \
+        MAKER_LOG_WARN("Check failed: " #v); \
+        return MAKER_STATUS_ERROR;           \
     }
 #define MAKER_UNUSED(v) (void)(v)
 

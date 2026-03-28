@@ -144,7 +144,8 @@ MakerStatus maker_demuxer_start(MakerDemuxer* demuxer, MakerDemuxerOptions* opti
 
     bool expected = TRUE;
     if (MAKER_ATOMIC_COMPARE_EXCHANGE(&demuxer->is_aborted, &expected, FALSE) == FALSE) {
-        return MAKER_STATUS_BUSY;
+        MAKER_LOG_DEBUG("Demuxer is busy.");
+        return MAKER_STATUS_OK;
     }
 
     return maker__demuxer_demux(demuxer, options);
