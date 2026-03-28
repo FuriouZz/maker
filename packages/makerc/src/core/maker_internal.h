@@ -329,7 +329,7 @@ typedef struct {
     MakerMedia        media;
     MakerClock        clock;
     MakerDecoderDesc  desc;
-    MakerContext*     context;
+    bool              use_local_context;
     bool              aborted;
 } MakerDecoderInternal;
 

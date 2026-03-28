@@ -21,7 +21,6 @@ int main(void)
     maker_context_init(
         &context,
         &(MakerContextDesc) {
-            .use_threads   = 1,
             .thread_count  = 2,
             .create_worker = create_task,
         }
@@ -30,9 +29,9 @@ int main(void)
     MakerDecoder decoder = { 0 };
     maker_decoder_init(
         &decoder,
-        &context,
         &(MakerDecoderDesc) {
-            .url = "./tests/video.mp4",
+            .url     = "./tests/video.mp4",
+            .context = &context,
         }
     );
 
@@ -49,7 +48,7 @@ int main(void)
         }
     );
 
-    maker_decoder_get_video_frame(&decoder, &image, 1);
+    maker_decoder_get_video_frame(&decoder, &image);
 
     printf("Save pgm\n");
     maker_video_frame_save_pgm(&image, "tmp/image.pgm");

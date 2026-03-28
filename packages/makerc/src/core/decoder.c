@@ -1,4 +1,6 @@
+#include "maker.h"
 #include "maker_internal.h"
+#include <string.h>
 
 inline MakerDecoderInternal* maker__decoder_internal(MakerDecoder* user_decoder)
 {
@@ -72,10 +74,9 @@ static MakerStatus maker__decoder_stop(MakerDecoder* user_decoder)
  * @param MakerDecoderDesc description
  * @return MakerDecoder
  */
-MakerStatus maker_decoder_init(MakerDecoder* user_decoder, MakerContext* user_context, MakerDecoderDesc* desc)
+MakerStatus maker_decoder_init(MakerDecoder* user_decoder, MakerDecoderDesc* desc)
 {
     MAKER_CHECK(user_decoder);
-    MAKER_CHECK(user_context);
     MAKER_CHECK(desc);
 
     MakerDecoderInternal* decoder = maker_malloc_clear(sizeof(*decoder));
@@ -86,11 +87,26 @@ MakerStatus maker_decoder_init(MakerDecoder* user_decoder, MakerContext* user_co
 
     memcpy(&decoder->desc, desc, sizeof(*desc));
 
+    decoder->use_local_context = decoder->desc.context == NULL;
+    if (decoder->use_local_context) {
+        MakerContextDesc context_desc = { 0 };
+        if (decoder->desc.context_desc != NULL) {
+            memcpy(&context_desc, decoder->desc.context_desc, sizeof(context_desc));
+        }
+
+        MakerContext* context = maker_malloc_clear(sizeof(MakerContext));
+        decoder->desc.context = context;
+
+        if (maker_context_init(context, &context_desc) != MAKER_STATUS_OK) {
+            goto cleanup_decoder;
+        }
+    }
+
     MakerStatus status;
     status = maker_media_init(&decoder->media, desc->url);
     if (status != MAKER_STATUS_OK) {
         MAKER_OUT_OF_MEMORY;
-        goto cleanup_decoder;
+        goto cleanup_context;
     }
 
     if (decoder->media.info.streams[MAKER_TRACK_TYPE_VIDEO] != -1) {
@@ -102,8 +118,6 @@ MakerStatus maker_decoder_init(MakerDecoder* user_decoder, MakerContext* user_co
     if (maker_demuxer_init(&decoder->demuxer, &decoder->media, &decoder->video) != MAKER_STATUS_OK) {
         goto cleanup_video_decoder;
     }
-
-    decoder->context = user_context;
 
     user_decoder->internal_state = decoder;
     user_decoder->is_initialized = TRUE;
@@ -119,6 +133,12 @@ cleanup_video_decoder:
 cleanup_media:
     maker_media_uninit(&decoder->media);
 
+cleanup_context:
+    if (decoder->use_local_context) {
+        maker_context_uninit(decoder->desc.context);
+        maker_free(decoder->desc.context);
+    }
+
 cleanup_decoder:
     maker_free(decoder);
 
@@ -129,18 +149,23 @@ fail:
 MakerStatus maker_decoder_uninit(MakerDecoder* user_decoder)
 {
     MAKER_CHECK(user_decoder);
+    MAKER_CHECK(user_decoder->is_initialized);
 
-    MakerStatus status;
-    status = maker__decoder_stop(user_decoder);
-
-    if (status != MAKER_STATUS_OK) {
-        return status;
+    if (maker__decoder_stop(user_decoder) != MAKER_STATUS_OK) {
+        return MAKER_STATUS_ERROR;
     }
 
     MakerDecoderInternal* decoder = maker__decoder_internal(user_decoder);
+
     maker_demuxer_uninit(&decoder->demuxer);
     maker_video_decoder_uninit(&decoder->video);
     maker_media_uninit(&decoder->media);
+
+    if (decoder->use_local_context) {
+        maker_context_uninit(decoder->desc.context);
+        maker_free(decoder->desc.context);
+    }
+
     maker_free(decoder);
 
     user_decoder->is_initialized = FALSE;
@@ -151,6 +176,7 @@ MakerStatus maker_decoder_uninit(MakerDecoder* user_decoder)
 MakerStatus maker_decoder_get_media_info(MakerDecoder* user_decoder, MakerMediaInfo* info)
 {
     MAKER_CHECK(user_decoder);
+    MAKER_CHECK(user_decoder->is_initialized);
     MAKER_CHECK(info);
     MakerDecoderInternal* decoder = maker__decoder_internal(user_decoder);
     memcpy(info, &decoder->media.info, sizeof(*info));
@@ -160,6 +186,7 @@ MakerStatus maker_decoder_get_media_info(MakerDecoder* user_decoder, MakerMediaI
 MakerStatus maker_decoder_seek(MakerDecoder* user_decoder, u64 timestamp)
 {
     MAKER_CHECK(user_decoder);
+    MAKER_CHECK(user_decoder->is_initialized);
 
     MakerDecoderInternal* decoder = maker__decoder_internal(user_decoder);
     MakerDemuxer*         demuxer = &decoder->demuxer;
@@ -178,6 +205,7 @@ MakerStatus maker_decoder_seek(MakerDecoder* user_decoder, u64 timestamp)
 MakerStatus maker_decoder_get_playback_time(MakerDecoder* user_decoder, u32* time_ms)
 {
     MAKER_CHECK(user_decoder);
+    MAKER_CHECK(user_decoder->is_initialized);
     MAKER_CHECK(time_ms);
 
     MakerDecoderInternal* decoder = maker__decoder_internal(user_decoder);
@@ -255,16 +283,13 @@ MakerStatus maker_decoder_get_playback_time(MakerDecoder* user_decoder, u32* tim
 //     return MAKER_STATUS_OK;
 // }
 
-MakerStatus maker_decoder_queue(MakerDecoder* user_decoder, MakerContext* user_context, bool wait)
+static MakerStatus maker_decoder_queue(MakerDecoder* user_decoder)
 {
     MAKER_CHECK(user_decoder);
-    MAKER_CHECK(user_context);
+    MAKER_CHECK(user_decoder->is_initialized);
 
     MakerDecoderInternal* decoder = maker__decoder_internal(user_decoder);
-    MakerContextInternal* context = maker__context_internal(user_context);
-
-    MAKER_UNUSED(wait);
-    MAKER_UNUSED(decoder);
+    MakerContextInternal* context = maker__context_internal(decoder->desc.context);
 
     if (context->desc.create_worker) {
         context->desc.create_worker(maker_decoder_demux, user_decoder);
@@ -292,14 +317,14 @@ MakerStatus maker_decoder_queue(MakerDecoder* user_decoder, MakerContext* user_c
     return MAKER_STATUS_OK;
 }
 
-u32 maker_decoder_get_video_frame(MakerDecoder* user_decoder, MakerVideoFrame* target, bool wait)
+u32 maker_decoder_get_video_frame(MakerDecoder* user_decoder, MakerVideoFrame* target)
 {
     MAKER_CHECK(user_decoder);
     MAKER_CHECK(target);
     // (void)maker__context_video_refresh;
 
     MakerDecoderInternal* decoder = maker__decoder_internal(user_decoder);
-    maker_decoder_queue(user_decoder, decoder->context, wait);
+    maker_decoder_queue(user_decoder);
 
     // if (maker__context_video_refresh(decoder) != MAKER_STATUS_OK) {
     //     return MAKER_STATUS_ERROR;

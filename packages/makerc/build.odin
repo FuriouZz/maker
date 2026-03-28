@@ -32,6 +32,7 @@ when PROFILE == "release" {
         "-g",
         "-O0",
         "-fsanitize=address",
+        "-DMAKER_DEBUG",
     }
 }
 

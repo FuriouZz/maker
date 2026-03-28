@@ -54,23 +54,24 @@ typedef struct {
 typedef struct {
     void*         internal_state;
     unsigned char is_initialized; /* boolean */
-} MakerDecoder;
+} MakerContext;
 
 typedef struct {
-    unsigned char use_playback;
-    char*         url;
-} MakerDecoderDesc;
+    unsigned int thread_count;
+    void (*create_worker)(MakerStatus (*task)(void* decoder), void* decoder);
+} MakerContextDesc;
 
 typedef struct {
     void*         internal_state;
     unsigned char is_initialized; /* boolean */
-} MakerContext;
+} MakerDecoder;
 
 typedef struct {
-    unsigned char use_threads;
-    unsigned int  thread_count;
-    void (*create_worker)(MakerStatus (*task)(void* decoder), void* decoder);
-} MakerContextDesc;
+    unsigned char     use_playback;
+    char*             url;
+    MakerContext*     context;
+    MakerContextDesc* context_desc;
+} MakerDecoderDesc;
 
 extern MakerStatus maker_media_info_init(MakerMediaInfo* info, char* url);
 extern MakerStatus maker_media_info_uninit(MakerMediaInfo* info);
@@ -80,11 +81,11 @@ extern MakerStatus maker_video_frame_uninit(MakerVideoFrame* data);
 extern MakerStatus maker_video_frame_save_pgm(MakerVideoFrame* target, char* output);
 extern MakerStatus maker_video_frame_save_ppm(MakerVideoFrame* target, char* output);
 
-extern MakerStatus maker_decoder_init(MakerDecoder* decoder, MakerContext* context, MakerDecoderDesc* desc);
+extern MakerStatus maker_decoder_init(MakerDecoder* decoder, MakerDecoderDesc* desc);
 extern MakerStatus maker_decoder_uninit(MakerDecoder* decoder);
 extern MakerStatus maker_decoder_get_media_info(MakerDecoder* decoder, MakerMediaInfo* info);
 
-extern unsigned int maker_decoder_get_video_frame(MakerDecoder* decoder, MakerVideoFrame* target, unsigned char wait);
+extern unsigned int maker_decoder_get_video_frame(MakerDecoder* decoder, MakerVideoFrame* target);
 extern MakerStatus  maker_decoder_get_playback_time(MakerDecoder* decoder, unsigned int* time_ms);
 extern MakerStatus  maker_decoder_seek(MakerDecoder* decoder, unsigned long long seconds);
 
