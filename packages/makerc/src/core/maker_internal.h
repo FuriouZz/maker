@@ -273,7 +273,7 @@ typedef struct {
 } MakerVideoDecoder;
 
 typedef struct {
-    u32 frame_count;
+    bool should_wait;
 } MakerVideoDecoderOptions;
 
 extern MakerStatus maker_video_decoder_init(MakerVideoDecoder* video, MakerMedia* media);
@@ -297,7 +297,8 @@ typedef struct {
 } MakerDemuxer;
 
 typedef struct {
-    u32 video_frame_count;
+    u32  max_video_frame_count;
+    bool should_wait;
 } MakerDemuxerOptions;
 
 extern MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerVideoDecoder* video_decoder);

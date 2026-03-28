@@ -1,4 +1,3 @@
-#include "maker.h"
 #include "maker_internal.h"
 
 MakerStatus maker_video_frame_init(MakerVideoFrame* frame, MakerVideoFrameDesc* desc)

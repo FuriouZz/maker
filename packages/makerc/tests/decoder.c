@@ -13,7 +13,7 @@ int main(void)
         &(MakerDecoderDesc) {
             .url          = "./tests/video.mp4",
             .context_desc = &(MakerContextDesc) {
-                .thread_count = 1,
+                .thread_count = 2,
             },
         }
     );

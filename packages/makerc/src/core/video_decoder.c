@@ -170,12 +170,16 @@ static MakerStatus maker__video_decoder_decode(MakerVideoDecoder* video, MakerVi
 
     MakerStatus status = MAKER_STATUS_ERROR;
 
-    u32 remaining_frame_count = 0;
+    bool should_wait = TRUE;
     if (options != NULL) {
-        remaining_frame_count = options->frame_count;
+        should_wait = options->should_wait;
     }
 
     for (;;) {
+        if (video->frame_queue.frame_count >= video->frame_queue.max_frame_count && !should_wait) {
+            break;
+        }
+
         i32 result = maker__video_decoder_decode_frame(video, is_aborted);
 
         if (result < 0) break;
@@ -190,11 +194,6 @@ static MakerStatus maker__video_decoder_decode(MakerVideoDecoder* video, MakerVi
         av_frame_move_ref(item->frame, video->frame);
         av_frame_unref(video->frame);
         maker_frame_queue_push_writable(&video->frame_queue);
-
-        if (remaining_frame_count > 0) {
-            remaining_frame_count--;
-            if (remaining_frame_count == 0) break;
-        }
     }
 
     status = MAKER_STATUS_OK;

@@ -11,11 +11,11 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptio
     i32                ret               = 0;
     MakerMutex         lock              = { 0 };
     u32                video_frame_count = 0;
-    bool               auto_stop         = FALSE;
+    bool               should_wait       = TRUE;
 
     if (options != NULL) {
-        video_frame_count = options->video_frame_count;
-        auto_stop         = TRUE;
+        video_frame_count = options->max_video_frame_count;
+        should_wait       = options->should_wait;
     }
 
     status = maker_mutex_init(&lock);
@@ -37,9 +37,15 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptio
             demuxer->is_eof = FALSE;
         }
 
-        if (av_fifo_can_write(video->packet_queue.fifo) == 0) {
-            maker_cond_wait(&demuxer->signal, &lock);
-            continue;
+        if (video_frame_count > 0) {
+            if (video->packet_queue.packet_count >= video_frame_count) {
+                if (should_wait) {
+                    maker_cond_wait(&demuxer->signal, &lock);
+                    continue;
+                } else {
+                    break;
+                }
+            }
         }
 
         ret = av_read_frame(format, packet);
@@ -61,14 +67,6 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptio
                 MAKER_LOG_ERROR("Cannot write packet");
                 goto cleanup;
             }
-
-            if (video_frame_count > 0) {
-                video_frame_count--;
-            }
-        }
-
-        if (auto_stop && video_frame_count == 0) {
-            break;
         }
     }
 

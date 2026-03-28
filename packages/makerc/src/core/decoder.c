@@ -1,6 +1,4 @@
-#include "maker.h"
 #include "maker_internal.h"
-#include <string.h>
 
 inline MakerDecoderInternal* maker__decoder_internal(MakerDecoder* user_decoder)
 {
@@ -15,7 +13,10 @@ MakerStatus maker_decoder_demux(void* data)
     MAKER_LOG_INFO("demux start");
     MakerStatus status = maker_demuxer_start(
         &decoder->demuxer,
-        &(MakerDemuxerOptions) { .video_frame_count = 16 }
+        &(MakerDemuxerOptions) {
+            .max_video_frame_count = 16,
+            .should_wait           = FALSE,
+        }
     );
     MAKER_LOG_INFO("demux stopped");
 
@@ -30,7 +31,9 @@ MakerStatus maker_decoder_decode_video(void* data)
     MAKER_LOG_INFO("decode_video start");
     MakerStatus status = maker_video_decoder_start(
         &decoder->video,
-        &(MakerVideoDecoderOptions) { .frame_count = 16 }
+        &(MakerVideoDecoderOptions) {
+            .should_wait = FALSE,
+        }
     );
     MAKER_LOG_INFO("decode_video stopped");
 
