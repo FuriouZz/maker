@@ -13,7 +13,7 @@ Context :: struct {
     user_data: rawptr,
 }
 
-Command_Callback :: proc(ctx: Context)
+Command_Callback :: proc(ctx: Context) -> os.Error
 
 Command :: struct {
     name:     string,
@@ -67,7 +67,10 @@ run_context :: proc(ctx: Context) {
 
     for command in ctx.commands {
         if ctx.cli.args[0] == command.name {
-            command.callback(ctx)
+            err := command.callback(ctx)
+            if err != nil {
+                fmt.panicf("%#v", err)
+            }
             break
         }
     }

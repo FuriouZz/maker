@@ -12,11 +12,11 @@ Dependency :: struct {
 
 add_dependency :: proc(desc: Dependency) -> os.Error {
     for cmd in desc.install_commands {
-        exec(cmd[:], {working_dir = desc.install_dir}) or_return
+        try_exec(cmd[:], {working_dir = desc.install_dir}) or_return
     }
 
     for cmd in desc.build_commands {
-        exec(cmd[:], {working_dir = desc.build_dir}) or_return
+        try_exec(cmd[:], {working_dir = desc.build_dir}) or_return
     }
 
     return nil

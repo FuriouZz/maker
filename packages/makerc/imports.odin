@@ -1,1 +1,1 @@
-foreign import lib "libmaker.dylib"
+foreign import lib "../../libs/libmaker.dylib"

@@ -25,27 +25,32 @@ C_Target :: struct {
 C_Artifact :: struct {
     name:             string,
     type:             C_Build_Mode,
-    target:           string,
-    target_dir:       string,
+    filename:         string,
+    output_dir:       string,
     definition_paths: []string,
 }
 
-C_Build_Context :: struct {
+C_Compiler :: struct {
     command:   string,
     targets:   map[string]C_Target,
     artifacts: map[string]C_Artifact,
 }
 
-add_c_target :: proc(ctx: ^C_Build_Context, target: C_Target) {
+uninit_c_compiler :: proc(compiler: ^C_Compiler) {
+    delete(compiler.targets)
+    delete(compiler.artifacts)
+}
+
+add_c_target :: proc(ctx: ^C_Compiler, target: C_Target) {
     ctx.targets[target.name] = target
 }
 
-add_c_artifact :: proc(ctx: ^C_Build_Context, artifact: C_Artifact) {
+add_c_artifact :: proc(ctx: ^C_Compiler, artifact: C_Artifact) {
     ctx.artifacts[artifact.name] = artifact
 }
 
 get_c_target :: proc(
-    ctx: ^C_Build_Context,
+    ctx: ^C_Compiler,
     name: string,
 ) -> (
     target: ^C_Target,
@@ -55,7 +60,7 @@ get_c_target :: proc(
 }
 
 get_c_artifact :: proc(
-    ctx: ^C_Build_Context,
+    ctx: ^C_Compiler,
     name: string,
 ) -> (
     artifact: ^C_Artifact,
@@ -64,29 +69,29 @@ get_c_artifact :: proc(
     return &ctx.artifacts[name]
 }
 
-compile_c_target :: proc(
-    ctx: ^C_Build_Context,
-    target_name: string,
+compile_c_artifact :: proc(
+    ctx: ^C_Compiler,
     artifact_name: string,
+    target_name: string,
 ) -> os.Error {
-    target, t_ok := get_c_target(ctx, target_name)
-    artifact, a_ok := get_c_artifact(ctx, artifact_name)
-    if t_ok && a_ok {
-        compile_target_with_artifact(ctx, target, artifact) or_return
+    if artifact, ok := get_c_artifact(ctx, artifact_name); ok {
+        if target, ok := get_c_target(ctx, target_name); ok {
+            return compile_target_with_artifact(ctx, target, artifact)
+        }
     }
-    return nil
+    return .Not_Exist
 }
 
-execute_c_target :: proc(
-    ctx: ^C_Build_Context,
+execute_c_artifact :: proc(
+    ctx: ^C_Compiler,
     artifact_name: string,
 ) -> os.Error {
-    artifact, ok := get_c_artifact(ctx, artifact_name)
-    if !ok {
-        return .Not_Exist
+    if artifact, ok := get_c_artifact(ctx, artifact_name); ok {
+        return try_exec(
+            fmt.tprintf("%s/%s", artifact.output_dir, artifact.filename),
+        )
     }
-    command := fmt.tprintf("%s/%s", artifact.target_dir, artifact.target)
-    return exec(command)
+    return .Not_Exist
 }
 
 @(private = "file")
@@ -101,28 +106,15 @@ add_definition_paths :: proc(cmd: ^[dynamic]string, artifact: ^C_Artifact) {
 
 @(private = "file")
 add_target_paths :: proc(cmd: ^[dynamic]string, artifact: ^C_Artifact) {
-    inc := fmt.tprintf("-L%s", artifact.target_dir)
+    inc := fmt.tprintf("-L%s", artifact.output_dir)
     if !slice.contains(cmd[:], inc) {
         append(cmd, inc)
     }
 }
 
-add_c_dependency_artifact :: proc(
-    cmd: ^[dynamic]string,
-    target: ^C_Artifact,
-    dep: ^C_Artifact,
-) {
-    add_definition_paths(cmd, dep)
-
-    if target.type == .Executable || target.type == .SharedLibrary {
-        append(cmd, fmt.tprintf("-l%s", dep.name))
-        add_target_paths(cmd, dep)
-    }
-}
-
 @(private = "file")
 compile_target_with_artifact :: proc(
-    ctx: ^C_Build_Context,
+    ctx: ^C_Compiler,
     target: ^C_Target,
     artifact: ^C_Artifact,
 ) -> os.Error {
@@ -130,21 +122,22 @@ compile_target_with_artifact :: proc(
         return nil
     }
 
-    ensure_dir(artifact.target_dir)
+    ensure_dir(artifact.output_dir)
 
-    cmd: [dynamic]string
+    cmd := make([dynamic]string)
+    defer delete(cmd)
 
     if artifact.type == .StaticLibrary {
         append(&cmd, "ar", "rcs")
         append(
             &cmd,
-            fmt.tprintf("%s/%s", artifact.target_dir, artifact.target),
+            fmt.tprintf("%s/%s", artifact.output_dir, artifact.filename),
         )
 
         for input in target.sources {
             output, _ := strings.replace(input, ".c", ".o", 1)
             output = os.join_path(
-                {artifact.target_dir, output},
+                {artifact.output_dir, output},
                 context.temp_allocator,
             ) or_return
 
@@ -153,7 +146,7 @@ compile_target_with_artifact :: proc(
 
             cmd2: [dynamic]string
             append(&cmd2, "cc")
-            append(&cmd2, ..target.flags)
+            append(&cmd2, ..target.flags[:])
             for name in target.libraries {
                 dep := get_c_artifact(ctx, name) or_continue
                 add_definition_paths(&cmd2, dep)
@@ -161,12 +154,12 @@ compile_target_with_artifact :: proc(
             add_definition_paths(&cmd2, artifact)
             append(&cmd2, "-c", input, "-o", output)
 
-            exec(cmd2[:]) or_return
+            try_exec(cmd2[:]) or_return
 
             append(&cmd, output)
         }
 
-        exec(cmd[:]) or_return
+        try_exec(cmd[:]) or_return
         return nil
     }
 
@@ -178,11 +171,15 @@ compile_target_with_artifact :: proc(
 
     if artifact.type == .SharedLibrary {
         append(&cmd, "-shared")
+        append(
+            &cmd,
+            fmt.tprintf("-Wl,-install_name,@rpath/%s", artifact.filename),
+        )
     } else if artifact.type == .Object {
         append(&cmd, "-c")
     }
 
-    append(&cmd, ..target.flags)
+    append(&cmd, ..target.flags[:])
     add_definition_paths(&cmd, artifact)
 
     for name in target.libraries {
@@ -190,8 +187,8 @@ compile_target_with_artifact :: proc(
         add_definition_paths(&cmd, dep)
 
         if artifact.type == .Executable || artifact.type == .SharedLibrary {
-            append(&cmd, fmt.tprintf("-l%s", dep.name))
             add_target_paths(&cmd, dep)
+            append(&cmd, fmt.tprintf("-l%s", dep.name))
         }
 
         if dep.type == .StaticLibrary {
@@ -203,11 +200,11 @@ compile_target_with_artifact :: proc(
     append(
         &cmd,
         "-o",
-        fmt.tprintf("%s/%s", artifact.target_dir, artifact.target),
+        fmt.tprintf("%s/%s", artifact.output_dir, artifact.filename),
     )
-    append(&cmd, ..target.sources)
+    append(&cmd, ..target.sources[:])
 
-    exec(cmd[:]) or_return
+    try_exec(cmd[:]) or_return
 
     return nil
 }
