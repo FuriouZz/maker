@@ -3,6 +3,7 @@ package build_exe
 import b "../../build"
 import "base:runtime"
 import "core:fmt"
+import "core:mem"
 import "core:os"
 
 PROFILE :: #config(PROFILE, "debug")
@@ -10,49 +11,49 @@ TARGET_DIR :: "target/" + PROFILE
 
 libavcodec := b.C_Artifact {
     name             = "avcodec",
-    filename         = "libavcodec.dylib",
+    filename         = "libavcodec.62.dylib",
     output_dir       = "vendors/ffmpeg/build/lib",
     definition_paths = {"vendors/ffmpeg/build/include"},
 }
 
 libavdevice := b.C_Artifact {
     name             = "avdevice",
-    filename         = "libavdevice.dylib",
+    filename         = "libavdevice.62.dylib",
     output_dir       = "vendors/ffmpeg/build/lib",
     definition_paths = {"vendors/ffmpeg/build/include"},
 }
 
 libavfilter := b.C_Artifact {
     name             = "avfilter",
-    filename         = "libavfilter.dylib",
+    filename         = "libavfilter.11.dylib",
     output_dir       = "vendors/ffmpeg/build/lib",
     definition_paths = {"vendors/ffmpeg/build/include"},
 }
 
 libavformat := b.C_Artifact {
     name             = "avformat",
-    filename         = "libavformat.dylib",
+    filename         = "libavformat.62.dylib",
     output_dir       = "vendors/ffmpeg/build/lib",
     definition_paths = {"vendors/ffmpeg/build/include"},
 }
 
 libavutil := b.C_Artifact {
     name             = "avutil",
-    filename         = "libavutil.dylib",
+    filename         = "libavutil.60.dylib",
     output_dir       = "vendors/ffmpeg/build/lib",
     definition_paths = {"vendors/ffmpeg/build/include"},
 }
 
 libswresample := b.C_Artifact {
     name             = "swresample",
-    filename         = "libswresample.dylib",
+    filename         = "libswresample.6.dylib",
     output_dir       = "vendors/ffmpeg/build/lib",
     definition_paths = {"vendors/ffmpeg/build/include"},
 }
 
 libswscale := b.C_Artifact {
     name             = "swscale",
-    filename         = "libswscale.dylib",
+    filename         = "libswscale.9.dylib",
     output_dir       = "vendors/ffmpeg/build/lib",
     definition_paths = {"vendors/ffmpeg/build/include"},
 }
@@ -136,9 +137,9 @@ target_test_custom_thread := b.C_Target {
     libraries = {"maker", "avcodec"},
 }
 
-install :: proc(_: b.Context) -> os.Error {
+install :: proc(ctx: b.Context) -> os.Error {
     install_bindgen() or_return
-    install_ffmpeg() or_return
+    install_ffmpeg(ctx) or_return
     return nil
 }
 
@@ -162,9 +163,6 @@ build :: proc(ctx: b.Context) -> os.Error {
             }
 
             // Change LD_LOAD_DYLIB
-            cwd := os.get_working_directory(context.temp_allocator) or_return
-            defer free_all(context.temp_allocator)
-
             for key in target.libraries {
                 if lib, ok := b.get_c_artifact(cc, key); ok {
                     input := fmt.tprintf("%s/%s", lib.output_dir, lib.filename)
@@ -179,7 +177,7 @@ build :: proc(ctx: b.Context) -> os.Error {
 
                     command := fmt.tprintf(
                         "install_name_tool -change %s/%s @rpath/%s%s %s",
-                        cwd,
+                        cc.cwd,
                         input,
                         os.short_stem(input),
                         os.ext(input),
@@ -208,9 +206,6 @@ test :: proc(ctx: b.Context) -> os.Error {
 
 bindgen :: proc(ctx: b.Context) -> os.Error {
     cc := cast(^b.C_Compiler)ctx.user_data
-
-    cwd := os.get_working_directory(context.temp_allocator) or_return
-    defer free_all(context.temp_allocator)
 
     if artifact, ok := b.get_c_artifact(cc, "maker"); ok {
         b.try_exec(
@@ -247,12 +242,10 @@ bear :: proc(_: b.Context) -> os.Error {
     )
 }
 
-install_ffmpeg :: proc() -> os.Error {
-    cwd, _ := os.get_working_directory(context.temp_allocator)
-    defer free_all(context.temp_allocator)
-
-    source_dir := fmt.tprintf("%s/vendors/ffmpeg/sources", cwd)
-    build_dir := fmt.tprintf("%s/vendors/ffmpeg/build", cwd)
+install_ffmpeg :: proc(ctx: b.Context) -> os.Error {
+    cc := cast(^b.C_Compiler)ctx.user_data
+    source_dir := fmt.tprintf("%s/vendors/ffmpeg/sources", cc.cwd)
+    build_dir := fmt.tprintf("%s/vendors/ffmpeg/build", cc.cwd)
     return b.add_dependency(
         {
             name = "ffmpeg",
@@ -313,14 +306,10 @@ install_bindgen :: proc() -> os.Error {
 }
 
 add_cflags :: proc(
-    flags: ^[]string,
     mode: b.C_Build_Mode,
     allocator := context.temp_allocator,
-) {
-    copy := flags^
+) -> []string {
     cflags := make([dynamic]string, allocator)
-    append(&cflags, ..copy)
-    delete(copy)
 
     append(
         &cflags,
@@ -343,33 +332,37 @@ add_cflags :: proc(
         )
     }
 
-    if mode == .SharedLibrary {
+
+    #partial switch mode {
+    case .SharedLibrary:
         append(&cflags, "-fvisibility=hidden", "-fPIC", "-pedantic")
+    case .Executable:
+        append(&cflags, "-Wl,-rpath,@executable_path")
     }
 
-    flags^ = cflags[:]
+    return cflags[:]
 }
 
 main :: proc() {
-    // track: mem.Tracking_Allocator
-    // mem.tracking_allocator_init(&track, context.allocator)
-    // context.allocator = mem.tracking_allocator(&track)
-    // defer {
-    //     if len(track.allocation_map) > 0 {
-    //         fmt.eprintf(
-    //             "=== %v allocations not freed: ===\n",
-    //             len(track.allocation_map),
-    //         )
-    //         for _, entry in track.allocation_map {
-    //             fmt.eprintf("- %v bytes @ %v\n", entry.size, entry.location)
-    //         }
-    //     }
-    //     mem.tracking_allocator_destroy(&track)
-    // }
+    track: mem.Tracking_Allocator
+    mem.tracking_allocator_init(&track, context.allocator)
+    context.allocator = mem.tracking_allocator(&track)
+    defer {
+        if len(track.allocation_map) > 0 {
+            fmt.eprintf(
+                "=== %v allocations not freed: ===\n",
+                len(track.allocation_map),
+            )
+            for _, entry in track.allocation_map {
+                fmt.eprintf("- %v bytes @ %v\n", entry.size, entry.location)
+            }
+        }
+        mem.tracking_allocator_destroy(&track)
+    }
 
     cc: b.C_Compiler
+    b.init_c_compiler(&cc)
     defer b.uninit_c_compiler(&cc)
-    cc.command = "gcc"
 
     b.add_c_artifact(&cc, libavcodec)
     b.add_c_artifact(&cc, libavdevice)
@@ -378,21 +371,20 @@ main :: proc() {
     b.add_c_artifact(&cc, libavutil)
     b.add_c_artifact(&cc, libswresample)
     b.add_c_artifact(&cc, libswscale)
+
     b.add_c_artifact(&cc, artifact_libmaker)
     b.add_c_artifact(&cc, artifact_test_media)
     b.add_c_artifact(&cc, artifact_test_decoder)
     b.add_c_artifact(&cc, artifact_test_custom_thread)
 
-    add_cflags(&target_maker.flags, .SharedLibrary)
+    target_maker.flags = add_cflags(.SharedLibrary)
+    target_test_media.flags = add_cflags(.Executable)
+    target_test_decoder.flags = add_cflags(.Executable)
+    target_test_custom_thread.flags = add_cflags(.Executable)
+
     b.add_c_target(&cc, target_maker)
-
-    add_cflags(&target_test_media.flags, .Executable)
     b.add_c_target(&cc, target_test_media)
-
-    add_cflags(&target_test_decoder.flags, .Executable)
     b.add_c_target(&cc, target_test_decoder)
-
-    add_cflags(&target_test_custom_thread.flags, .Executable)
     b.add_c_target(&cc, target_test_custom_thread)
 
     ctx: b.Context

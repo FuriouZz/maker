@@ -31,12 +31,20 @@ C_Artifact :: struct {
 }
 
 C_Compiler :: struct {
+    cwd:       string,
     command:   string,
     targets:   map[string]C_Target,
     artifacts: map[string]C_Artifact,
 }
 
+init_c_compiler :: proc(compiler: ^C_Compiler) {
+    cwd, _ := os.get_working_directory(context.allocator)
+    compiler.cwd = cwd
+    compiler.command = "gcc"
+}
+
 uninit_c_compiler :: proc(compiler: ^C_Compiler) {
+    delete(compiler.cwd)
     delete(compiler.targets)
     delete(compiler.artifacts)
 }
