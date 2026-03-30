@@ -1,6 +1,6 @@
 package tests
 
-import "../src/decoder"
+import "../src/makerc"
 // import "base:runtime"
 // import "core:fmt"
 import "core:testing"
@@ -49,15 +49,15 @@ decode_media_test :: proc(t: ^testing.T) {
 
     input := cstring("../makerc/tests/video.mp4")
 
-    d: decoder.Decoder
-    decoder.decoder_init(&d, &{url = input})
-    defer decoder.decoder_uninit(&d)
+    d: makerc.Decoder
+    makerc.decoder_init(&d, &{url = input})
+    defer makerc.decoder_uninit(&d)
 
-    info: decoder.MediaInfo
-    decoder.decoder_get_media_info(&d, &info)
+    info: makerc.MediaInfo
+    makerc.decoder_get_media_info(&d, &info)
 
-    frame: decoder.VideoFrame
-    decoder.video_frame_init(
+    frame: makerc.VideoFrame
+    makerc.video_frame_init(
         &frame,
         &{
             width = info.video_width,
@@ -65,12 +65,12 @@ decode_media_test :: proc(t: ^testing.T) {
             format = .RGBA,
         },
     )
-    defer decoder.video_frame_uninit(&frame)
+    defer makerc.video_frame_uninit(&frame)
 
-    decoder.decoder_get_video_frame(&d, &frame)
+    makerc.decoder_get_video_frame(&d, &frame)
 
-    decoder.video_frame_save_pgm(&frame, cstring("image.pgm"))
-    decoder.video_frame_save_ppm(&frame, cstring("image.ppm"))
+    makerc.video_frame_save_pgm(&frame, cstring("image.pgm"))
+    makerc.video_frame_save_ppm(&frame, cstring("image.ppm"))
 
     // media := maker.media_open(input)
     // defer maker.media_free(media)

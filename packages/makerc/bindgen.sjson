@@ -4,9 +4,9 @@ inputs = [
 
 imports_file = "./imports.odin"
 
-output_folder = "../editor/src/decoder"
+output_folder = "../editor/src/makerc"
 
-package_name = "decoder"
+package_name = "makerc"
 
 remove_type_prefix = "Maker"
 remove_function_prefix = "maker_"
