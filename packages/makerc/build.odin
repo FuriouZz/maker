@@ -344,7 +344,7 @@ add_cflags :: proc(
     }
 
     if mode == .SharedLibrary {
-        append(&cflags, "-fPIC", "-pedantic")
+        append(&cflags, "-fvisibility=hidden", "-fPIC", "-pedantic")
     }
 
     flags^ = cflags[:]
