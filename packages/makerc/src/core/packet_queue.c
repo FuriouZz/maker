@@ -166,3 +166,13 @@ i32 maker_packet_queue_get(
 
     return ret;
 }
+
+u32 maker_packet_queue_count(MakerPacketQueue* queue)
+{
+    MAKER_ASSERT(queue);
+
+    maker_mutex_lock(&queue->lock);
+    u32 count = queue->packet_count;
+    maker_mutex_unlock(&queue->lock);
+    return count;
+}

@@ -6,7 +6,7 @@ static MakerStatus maker__can_read_job(AVFifo* fifo, MakerThreadPoolJob* job, Ma
 
     maker_mutex_lock(mutex);
     for (;;) {
-        if (*is_aborted == TRUE) {
+        if (MAKER_ATOMIC_LOAD(is_aborted) == TRUE) {
             break;
         }
 
@@ -29,7 +29,7 @@ static MakerStatus maker__thread_worker(void* user_data, u32 user_index)
     MakerThreadPoolJob      job = { 0 };
 
     for (;;) {
-        if (ctx->is_aborted == TRUE) {
+        if (MAKER_ATOMIC_LOAD(&ctx->is_aborted) == TRUE) {
             MAKER_LOG_INFO(maker_format("job aborted (%d)", user_index));
             break;
         }
@@ -141,7 +141,11 @@ void maker_thread_pool_uninit(MakerThreadPool* pool)
 {
     if (pool == NULL) return;
 
-    pool->context.is_aborted = TRUE;
+    bool expected = FALSE;
+    if (!MAKER_ATOMIC_COMPARE_EXCHANGE(&pool->context.is_aborted, &expected, TRUE)) {
+        return;
+    }
+
     maker_cond_broadcast(&pool->context.new_job_signal);
 
     for (usize i = 0; i < pool->count; i++) {

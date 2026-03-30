@@ -151,3 +151,13 @@ MakerFrameQueueItem* maker_frame_queue_peek_last(MakerFrameQueue* queue)
 
     return &queue->items[queue->read_index];
 }
+
+bool maker_frame_queue_is_full(MakerFrameQueue* queue)
+{
+    MAKER_ASSERT(queue);
+
+    maker_mutex_lock(&queue->lock);
+    bool is_full = queue->frame_count >= queue->max_frame_count;
+    maker_mutex_unlock(&queue->lock);
+    return is_full;
+}

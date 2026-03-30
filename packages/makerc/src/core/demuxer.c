@@ -38,7 +38,7 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptio
         }
 
         if (video_frame_count > 0) {
-            if (video->packet_queue.packet_count >= video_frame_count) {
+            if (maker_packet_queue_count(&video->packet_queue) >= video_frame_count) {
                 if (should_wait) {
                     maker_cond_wait(&demuxer->signal, &lock);
                     continue;

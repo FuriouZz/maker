@@ -325,9 +325,9 @@ add_cflags :: proc(
     when PROFILE == "debug" {
         append(
             &cflags,
-            "-fsanitize=address",
+            // "-fsanitize=address",
             // "-fsanitize=memory",
-            // "-fsanitize=thread",
+            "-fsanitize=thread",
             "-DMAKER_DEBUG",
         )
     }

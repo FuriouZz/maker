@@ -176,7 +176,7 @@ static MakerStatus maker__video_decoder_decode(MakerVideoDecoder* video, MakerVi
     }
 
     for (;;) {
-        if (video->frame_queue.frame_count >= video->frame_queue.max_frame_count && !should_wait) {
+        if (maker_frame_queue_is_full(&video->frame_queue) && !should_wait) {
             break;
         }
 

@@ -199,6 +199,7 @@ extern void        maker_packet_queue_stop(MakerPacketQueue* queue);
 extern void        maker_packet_queue_flush(MakerPacketQueue* queue);
 extern MakerStatus maker_packet_queue_put(MakerPacketQueue* queue, AVPacket* packet);
 extern i32         maker_packet_queue_get(MakerPacketQueue* queue, AVPacket* packet, bool should_block, i32* serial);
+extern u32         maker_packet_queue_count(MakerPacketQueue* queue);
 
 /* ---- frame_queue.c ----
  */
@@ -226,6 +227,7 @@ extern MakerFrameQueueItem* maker_frame_queue_peek_writable(MakerFrameQueue* que
 extern void                 maker_frame_queue_push_writable(MakerFrameQueue* queue);
 extern void                 maker_frame_queue_pop_readable(MakerFrameQueue* queue);
 extern MakerFrameQueueItem* maker_frame_queue_peek_last(MakerFrameQueue* queue);
+extern bool                 maker_frame_queue_is_full(MakerFrameQueue* queue);
 
 /* ---- media_info.c ----
  */
