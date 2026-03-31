@@ -21,24 +21,27 @@ TextureSource :: union {
 }
 
 Internal :: struct {
-    gpu:   ^Context,
-    ctx:   runtime.Context,
-    ready: proc(gpu: ^Context),
+    gpu:      ^Context,
+    ctx:      runtime.Context,
+    ready:    proc(userdata: rawptr),
+    userdata: rawptr,
 }
 
 context_init :: proc(
     gpu: ^Context,
     instance: wgpu.Instance,
     surface: wgpu.Surface,
-    ready: proc(gpu: ^Context),
+    ready: proc(userdata: rawptr),
+    userdata: rawptr,
 ) {
     gpu.instance = instance
     gpu.surface = surface
 
     internal := Internal {
-        gpu   = gpu,
-        ctx   = context,
-        ready = ready,
+        gpu      = gpu,
+        ctx      = context,
+        ready    = ready,
+        userdata = userdata,
     }
 
     wgpu.InstanceRequestAdapter(
@@ -100,7 +103,7 @@ context_init :: proc(
         gpu.queue = wgpu.DeviceGetQueue(gpu.device)
 
         if internal.ready != nil {
-            internal.ready(gpu)
+            internal.ready(internal.userdata)
         }
     }
 }
