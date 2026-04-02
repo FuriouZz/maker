@@ -1,6 +1,6 @@
 package application
 
-import GPU "../graphics"
+import GPU "../gpu"
 import "base:intrinsics"
 import "core:fmt"
 import SDL "vendor:sdl3"
@@ -28,23 +28,19 @@ ApplicationDesc :: struct {
 init :: proc(
     $T: typeid,
     desc: ApplicationDesc,
+    allocator := context.allocator,
 ) where intrinsics.type_is_subtype_of(T, Application) {
-    app := cast(^Application)new(T)
+    app := cast(^Application)new(T, allocator)
+
+    if app == nil {
+        panic("Failed to allocate app")
+    }
 
     if !SDL.Init({.VIDEO}) {
         fmt.panicf("SDL.Init error: ", SDL.GetError())
     }
 
     app.desc = desc
-    // app.desc.ready :=
-    //     app.desc.on_ready if app.desc.on_ready != nil else OnReadyCallback(proc(app: ^Application) {})
-    // app.desc.frame :=
-    //     app.desc.on_frame if app.desc.on_frame != nil else OnFrameCallback(proc(app: ^Application, dt: f32) {})
-    // app.desc.resize :=
-    //     app.desc.on_resize if app.desc.on_resize != nil else OnResizeCallback(proc(app: ^Application) {})
-    // app.desc.finish :=
-    //     app.desc.on_finish if app.desc.on_finish != nil else OnFinishCallback(proc(app: ^Application) {})
-
     app.window = SDL.CreateWindow(
         "WGPU Native Triangle",
         800,
@@ -62,7 +58,7 @@ init :: proc(
     }
 
     surface := sdl3glue.GetSurface(instance, app.window)
-    GPU.context_init(&app.gpu, instance, surface, ready, app)
+    GPU.init(&app.gpu, instance, surface, ready, app)
 
     ready :: proc(userdata: rawptr) {
         app := cast(^Application)userdata
@@ -78,7 +74,6 @@ get_size :: proc(app: ^Application) -> (u32, u32) {
 
 @(private = "file")
 _run :: proc(app: ^Application) {
-
     if app.desc.on_ready != nil {app.desc.on_ready(app)}
 
     now := SDL.GetPerformanceCounter()
@@ -96,7 +91,7 @@ _run :: proc(app: ^Application) {
                 break main_loop
             case .WINDOW_RESIZED, .WINDOW_PIXEL_SIZE_CHANGED:
                 w, h := get_size(app)
-                GPU.context_resize_surface(&app.gpu, w, h)
+                GPU.resize_surface(&app.gpu, w, h)
                 if app.desc.on_resize != nil {app.desc.on_resize(app)}
             }
         }
@@ -106,7 +101,7 @@ _run :: proc(app: ^Application) {
 
     if app.desc.on_finish != nil {app.desc.on_finish(app)}
 
-    GPU.context_uninit(&app.gpu)
+    GPU.uninit(&app.gpu)
 
     SDL.DestroyWindow(app.window)
     SDL.Quit()
