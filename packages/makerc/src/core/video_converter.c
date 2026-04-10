@@ -1,15 +1,10 @@
 #include "maker_internal.h"
 
-MakerVideoConverter* maker_video_converter_alloc(void)
-{
-    return maker_malloc_clear(sizeof(MakerVideoConverter));
-}
-
-void maker_video_converter_free(MakerVideoConverter* converter)
+void maker_video_converter_uninit(MakerVideoConverter* converter)
 {
     if (converter == NULL) return;
-    maker_video_converter_uninit(converter);
-    maker_free(converter);
+    av_frame_free(&converter->frame);
+    sws_freeContext(converter->sws_context);
 }
 
 MakerStatus maker_video_converter_init(MakerVideoConverter* converter, u32 width, u32 height, MakerPixelFormat user_src_format, MakerPixelFormat user_dst_format)
@@ -56,14 +51,6 @@ cleanup_sws_context:
 
 fail:
     return MAKER_STATUS_ERROR;
-}
-
-void maker_video_converter_uninit(MakerVideoConverter* converter)
-{
-    if (converter == NULL) return;
-
-    av_frame_free(&converter->frame);
-    sws_freeContext(converter->sws_context);
 }
 
 MakerStatus maker_video_converter_yuv2rgba(MakerVideoConverter* converter, MakerVideoFrame* target, AVFrame* src_frame)

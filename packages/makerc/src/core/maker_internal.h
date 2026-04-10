@@ -62,12 +62,8 @@ typedef struct timespec MakerTime;
 typedef struct {
     MakerTime* start_time;
     MakerTime* pause_time;
-} MakerClock;
+} MakerClockInternal;
 
-extern MakerStatus maker_clock_init(MakerClock* clock);
-extern void        maker_clock_uninit(MakerClock* clock);
-extern MakerStatus maker_clock_start(MakerClock* clock);
-extern MakerStatus maker_clock_pause(MakerClock* clock);
 extern MakerStatus maker_get_time(MakerTime* time);
 
 /* ---- pixel_format.c ----
@@ -148,6 +144,24 @@ extern MakerStatus maker_barrier_init(MakerBarrier* barrier, i32 thread_count);
 extern MakerStatus maker_barrier_uninit(MakerBarrier* barrier);
 extern bool        maker_barrier_wait(MakerBarrier* barrier);
 
+/* ---- pool.c ----
+ */
+
+typedef struct {
+    u16* gen_indexes;
+    u32* slots;
+    u32  size;
+    u32  head;
+} MakerPool;
+
+typedef u32 MakerPoolSlot;
+
+extern MakerStatus maker_pool_init(MakerPool* pool, u32 size);
+extern void        maker_pool_uninit(MakerPool* pool);
+extern MakerStatus maker_pool_alloc_slot(MakerPool* pool, MakerPoolSlot* slot);
+extern u32         maker_pool_get_slot_index(MakerPoolSlot* slot);
+extern bool        maker_pool_is_empty(MakerPool* pool);
+
 /* ---- thread_pool.c ----
  */
 
@@ -185,6 +199,7 @@ typedef struct {
     MakerMutex lock;
     MakerCond  new_item_signal;
     AVFifo*    fifo;
+    int        stream_index;
     u32        packet_count;
     i32        serial;
     bool       is_aborted;
@@ -204,6 +219,8 @@ extern u32         maker_packet_queue_count(MakerPacketQueue* queue);
 
 typedef struct {
     AVFrame* frame;
+    u64      pts;
+    u64      duration;
 } MakerFrameQueueItem;
 
 typedef struct {
@@ -243,7 +260,7 @@ typedef struct {
 
 extern AVFormatContext* maker_media_create_context(char* url);
 extern MakerStatus      maker_media_init(MakerMedia* media, char* url);
-extern MakerStatus      maker_media_uninit(MakerMedia* media);
+extern void             maker_media_uninit(MakerMedia* media);
 
 /** ---- video_converter.c ----
  */
@@ -252,22 +269,21 @@ typedef struct {
     AVFrame*           frame;
 } MakerVideoConverter;
 
-extern MakerVideoConverter* maker_video_converter_alloc(void);
-extern void                 maker_video_converter_free(MakerVideoConverter* converter);
-extern MakerStatus          maker_video_converter_init(MakerVideoConverter* converter, u32 width, u32 height, MakerPixelFormat src_format, MakerPixelFormat dst_format);
-extern void                 maker_video_converter_uninit(MakerVideoConverter* converter);
-extern MakerStatus          maker_video_converter_yuv2rgba(MakerVideoConverter* converter, MakerVideoFrame* target, AVFrame* src_frame);
+extern MakerStatus maker_video_converter_init(MakerVideoConverter* converter, u32 width, u32 height, MakerPixelFormat src_format, MakerPixelFormat dst_format);
+extern void        maker_video_converter_uninit(MakerVideoConverter* converter);
+extern MakerStatus maker_video_converter_yuv2rgba(MakerVideoConverter* converter, MakerVideoFrame* target, AVFrame* src_frame);
 
 /* ---- video_decoder.c ----
  */
 typedef struct {
-    MakerPacketQueue     packet_queue;
+    MakerPacketQueue*    packet_queue;
     MakerFrameQueue      frame_queue;
+    MakerCond            aborted_signal;
+    MakerMutex           aborted_lock;
     AVCodecContext*      codec;
     AVPacket*            packet;
     AVFrame*             frame;
     MakerVideoConverter* converter;
-    i32                  stream_index;
     i32                  packet_serial;
     bool                 is_aborted;
 } MakerVideoDecoder;
@@ -276,11 +292,12 @@ typedef struct {
     bool should_wait;
 } MakerVideoDecoderOptions;
 
-extern MakerStatus maker_video_decoder_init(MakerVideoDecoder* video, MakerMedia* media);
+extern MakerStatus maker_video_decoder_init(MakerVideoDecoder* video, MakerMedia* media, MakerPacketQueue* packet_queue);
 extern void        maker_video_decoder_uninit(MakerVideoDecoder* video);
 extern MakerStatus maker_video_decoder_start(MakerVideoDecoder* video, MakerVideoDecoderOptions* options);
 extern MakerStatus maker_video_decoder_stop(MakerVideoDecoder* video);
 extern MakerStatus maker_video_decoder_yuv2rgb(MakerVideoDecoder* decoder, MakerVideoFrame* target, AVFrame* src_frame);
+extern bool        maker_video_decoder_can_run(MakerVideoDecoder* video);
 
 /* ---- demuxer.c ----
  */
@@ -290,13 +307,10 @@ typedef struct {
 } MakerDemuxerOptions;
 
 typedef struct {
-    bool should_wait;
-} MakerDemuxerStartOptions;
-
-typedef struct {
-    MakerCond           signal;
+    MakerMutex          abort_lock;
+    MakerCond           abort_signal;
     AVPacket*           packet;
-    MakerVideoDecoder*  video;
+    MakerPacketQueue    picture_queue;
     AVFormatContext*    format;
     MakerDemuxerOptions options;
     u32                 seek_timestamp;
@@ -306,11 +320,12 @@ typedef struct {
     bool                is_eof;
 } MakerDemuxer;
 
-extern MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerVideoDecoder* video_decoder, MakerDemuxerOptions* options);
+extern MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerDemuxerOptions* options);
 extern void        maker_demuxer_uninit(MakerDemuxer* demuxer);
 extern void        maker_demuxer_setup(MakerDemuxer* demuxer);
-extern MakerStatus maker_demuxer_start(MakerDemuxer* demuxer, MakerDemuxerStartOptions* options);
+extern MakerStatus maker_demuxer_start(MakerDemuxer* demuxer);
 extern MakerStatus maker_demuxer_stop(MakerDemuxer* demuxer);
+extern bool        maker_demuxer_can_run(MakerDemuxer* demuxer);
 
 /* ---- wait_group.c ----
  */
@@ -344,17 +359,13 @@ typedef struct {
     MakerVideoDecoder video;
     MakerDemuxer      demuxer;
     MakerMedia        media;
-    MakerClock        clock;
     MakerDecoderDesc  desc;
 
     MakerJobData demux_worker;
     MakerJobData video_decoder_worker;
 
     bool use_local_context;
-    bool aborted;
 } MakerDecoderInternal;
-
-extern MakerDecoderInternal* maker__decoder_internal(MakerDecoder* user_decoder);
 
 /* ---- context.c ----
  */
@@ -364,5 +375,4 @@ typedef struct {
     MakerContextDesc desc;
 } MakerContextInternal;
 
-extern MakerContextInternal* maker__context_internal(MakerContext* user_context);
 #endif

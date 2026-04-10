@@ -1,22 +1,16 @@
 #include "maker_internal.h"
 
-static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerStartOptions* options)
+static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer)
 {
     MAKER_CHECK(demuxer);
 
-    MakerVideoDecoder* video             = demuxer->video;
-    AVPacket*          packet            = demuxer->packet;
-    AVFormatContext*   format            = demuxer->format;
-    MakerStatus        status            = MAKER_STATUS_OK;
-    i32                ret               = 0;
-    MakerMutex         lock              = { 0 };
-    u32                video_frame_count = 0;
-    bool               should_wait       = TRUE;
+    AVPacket*        packet = demuxer->packet;
+    AVFormatContext* format = demuxer->format;
+    MakerStatus      status = MAKER_STATUS_OK;
+    i32              ret    = 0;
+    MakerMutex       lock   = { 0 };
 
-    if (options != NULL) {
-        video_frame_count = demuxer->options.max_video_frame_count;
-        should_wait       = options->should_wait;
-    }
+    u32 max_video_frame_count = demuxer->options.max_video_frame_count;
 
     status = maker_mutex_init(&lock);
     if (status != MAKER_STATUS_OK) {
@@ -37,15 +31,8 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerStart
             demuxer->is_eof = FALSE;
         }
 
-        if (video_frame_count > 0) {
-            if (maker_packet_queue_count(&video->packet_queue) >= video_frame_count) {
-                if (should_wait) {
-                    maker_cond_wait(&demuxer->signal, &lock);
-                    continue;
-                } else {
-                    break;
-                }
-            }
+        if (maker_packet_queue_count(&demuxer->picture_queue) >= max_video_frame_count) {
+            break;
         }
 
         ret = av_read_frame(format, packet);
@@ -60,9 +47,9 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerStart
             demuxer->is_eof = FALSE;
         }
 
-        if (packet->stream_index == video->stream_index) {
+        if (packet->stream_index == demuxer->picture_queue.stream_index) {
             MAKER_LOG_DEBUG("Put video packet");
-            status = maker_packet_queue_put(&video->packet_queue, packet);
+            status = maker_packet_queue_put(&demuxer->picture_queue, packet);
             if (status != MAKER_STATUS_OK) {
                 MAKER_LOG_ERROR("Cannot write packet");
                 goto cleanup;
@@ -73,22 +60,53 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerStart
 cleanup:
     MAKER_ATOMIC_STORE(&demuxer->is_aborted, TRUE);
     maker_mutex_uninit(&lock);
+    maker_cond_signal(&demuxer->abort_signal);
 
 the_end:
     return status;
 }
 
-MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerVideoDecoder* video_decoder, MakerDemuxerOptions* options)
+void maker_demuxer_setup(MakerDemuxer* demuxer)
+{
+    MAKER_ASSERT(demuxer);
+
+    if (demuxer->picture_queue.stream_index > -1) {
+        maker_packet_queue_start(&demuxer->picture_queue);
+    }
+}
+
+MakerStatus maker_demuxer_start(MakerDemuxer* demuxer)
+{
+    MAKER_CHECK(demuxer);
+
+    bool expected = TRUE;
+    if (MAKER_ATOMIC_COMPARE_EXCHANGE(&demuxer->is_aborted, &expected, FALSE) == FALSE) {
+        MAKER_LOG_DEBUG("Demuxer is busy.");
+        return MAKER_STATUS_ERROR;
+    }
+
+    return maker__demuxer_demux(demuxer);
+}
+
+MakerStatus maker_demuxer_stop(MakerDemuxer* demuxer)
+{
+    MAKER_CHECK(demuxer);
+
+    bool expected = FALSE;
+    if (MAKER_ATOMIC_COMPARE_EXCHANGE(&demuxer->is_aborted, &expected, TRUE)) {
+        maker_packet_queue_stop(&demuxer->picture_queue);
+    }
+
+    MAKER_LOG_DEBUG("Demuxer is already pending.");
+    return MAKER_STATUS_OK;
+}
+
+MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerDemuxerOptions* options)
 {
     MAKER_CHECK(demuxer);
     MAKER_CHECK(media);
-    MAKER_CHECK(video_decoder);
 
     maker_clear(demuxer, sizeof(*demuxer));
-    demuxer->format     = NULL;
-    demuxer->packet     = NULL;
-    demuxer->video      = NULL;
-    demuxer->is_eof     = FALSE;
     demuxer->is_aborted = TRUE;
 
     if (options != NULL) {
@@ -97,28 +115,27 @@ MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerVi
 
     MAKER_ASSERT(demuxer->options.max_video_frame_count > 0);
 
-    AVPacket* packet = av_packet_alloc();
-    if (packet == NULL) {
+    if (maker_packet_queue_init(&demuxer->picture_queue) != MAKER_STATUS_OK) {
+        goto cleanup;
+    }
+
+    demuxer->packet = av_packet_alloc();
+    if (demuxer->packet == NULL) {
         MAKER_OUT_OF_MEMORY;
-        goto fail;
+        goto cleanup;
     }
 
-    MakerCond signal = { 0 };
-    if (maker_cond_init(&signal) != MAKER_STATUS_OK) {
-        goto cleanup_packet;
+    if (maker_cond_init(&demuxer->abort_signal) != MAKER_STATUS_OK) {
+        goto cleanup;
     }
 
-    demuxer->video  = video_decoder;
-    demuxer->format = media->format;
-    demuxer->packet = packet;
-    demuxer->signal = signal;
+    demuxer->picture_queue.stream_index = media->info.streams[MAKER_TRACK_TYPE_VIDEO];
+    demuxer->format                     = media->format;
 
     return MAKER_STATUS_OK;
 
-cleanup_packet:
-    av_packet_free(&packet);
-
-fail:
+cleanup:
+    maker_demuxer_uninit(demuxer);
     return MAKER_STATUS_ERROR;
 }
 
@@ -126,57 +143,29 @@ void maker_demuxer_uninit(MakerDemuxer* demuxer)
 {
     if (demuxer == NULL) return;
 
+    MAKER_LOG_DEBUG("Will uninit demuxer");
+
+    bool expected = FALSE;
+    if (MAKER_ATOMIC_COMPARE_EXCHANGE(&demuxer->is_aborted, &expected, TRUE)) {
+        MAKER_LOG_DEBUG("Wait demuxer");
+        maker_mutex_lock(&demuxer->abort_lock);
+        maker_cond_wait(&demuxer->abort_signal, &demuxer->abort_lock);
+        maker_mutex_unlock(&demuxer->abort_lock);
+    }
+
+    MAKER_LOG_DEBUG("Uninit demuxer");
+    maker_mutex_uninit(&demuxer->abort_lock);
+    maker_cond_uninit(&demuxer->abort_signal);
     av_packet_free(&demuxer->packet);
-    maker_cond_uninit(&demuxer->signal);
-    demuxer->format     = NULL;
-    demuxer->packet     = NULL;
-    demuxer->video      = NULL;
-    demuxer->is_eof     = FALSE;
+    maker_packet_queue_uninit(&demuxer->picture_queue);
+
+    maker_clear(demuxer, sizeof(*demuxer));
     demuxer->is_aborted = TRUE;
 }
 
-void maker_demuxer_setup(MakerDemuxer* demuxer)
-{
-    MAKER_ASSERT(demuxer);
-
-    if (demuxer->video != NULL && demuxer->video->is_aborted) {
-        maker_packet_queue_start(&demuxer->video->packet_queue);
-    }
-}
-
-MakerStatus maker_demuxer_start(MakerDemuxer* demuxer, MakerDemuxerStartOptions* options)
-{
-    MAKER_CHECK(demuxer);
-
-    bool expected = TRUE;
-    if (MAKER_ATOMIC_COMPARE_EXCHANGE(&demuxer->is_aborted, &expected, FALSE) == FALSE) {
-        MAKER_LOG_DEBUG("Demuxer is busy.");
-        return MAKER_STATUS_OK;
-    }
-
-    return maker__demuxer_demux(demuxer, options);
-}
-
-MakerStatus maker_demuxer_stop(MakerDemuxer* demuxer)
-{
-    MAKER_CHECK(demuxer);
-
-    bool expected = FALSE;
-    if (MAKER_ATOMIC_COMPARE_EXCHANGE(&demuxer->is_aborted, &expected, TRUE) == FALSE) {
-        return MAKER_STATUS_OK;
-    }
-
-    if (demuxer->video != NULL) {
-        maker_packet_queue_stop(&demuxer->video->packet_queue);
-    }
-    maker_cond_signal(&demuxer->signal);
-
-    return MAKER_STATUS_OK;
-}
-
-bool maker_demuxer_can_run(MakerDemuxer* demuxer, u32 max_count)
+bool maker_demuxer_can_run(MakerDemuxer* demuxer)
 {
     MAKER_ASSERT(demuxer);
     return MAKER_ATOMIC_LOAD(&demuxer->is_aborted)
-        && max_count == maker_packet_queue_count(&demuxer->video->packet_queue);
+        && maker_packet_queue_count(&demuxer->picture_queue) < demuxer->options.max_video_frame_count;
 }

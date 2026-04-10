@@ -80,6 +80,13 @@ artifact_test_decoder := b.C_Artifact {
     output_dir = TARGET_DIR,
 }
 
+artifact_test_playback := b.C_Artifact {
+    name       = "test_playback",
+    type       = .Executable,
+    filename   = "test_playback.bin",
+    output_dir = TARGET_DIR,
+}
+
 artifact_test_custom_thread := b.C_Artifact {
     name       = "test_custom_thread",
     type       = .Executable,
@@ -128,6 +135,12 @@ target_test_media := b.C_Target {
 target_test_decoder := b.C_Target {
     name      = "test_decoder",
     sources   = {"tests/decoder.c"},
+    libraries = {"maker"},
+}
+
+target_test_playback := b.C_Target {
+    name      = "test_playback",
+    sources   = {"tests/playback.c"},
     libraries = {"maker"},
 }
 
@@ -375,16 +388,19 @@ main :: proc() {
     b.add_c_artifact(&cc, artifact_libmaker)
     b.add_c_artifact(&cc, artifact_test_media)
     b.add_c_artifact(&cc, artifact_test_decoder)
+    b.add_c_artifact(&cc, artifact_test_playback)
     b.add_c_artifact(&cc, artifact_test_custom_thread)
 
     target_maker.flags = add_cflags(.SharedLibrary)
     target_test_media.flags = add_cflags(.Executable)
     target_test_decoder.flags = add_cflags(.Executable)
+    target_test_playback.flags = add_cflags(.Executable)
     target_test_custom_thread.flags = add_cflags(.Executable)
 
     b.add_c_target(&cc, target_maker)
     b.add_c_target(&cc, target_test_media)
     b.add_c_target(&cc, target_test_decoder)
+    b.add_c_target(&cc, target_test_playback)
     b.add_c_target(&cc, target_test_custom_thread)
 
     ctx: b.Context

@@ -124,10 +124,7 @@ void maker_frame_queue_push_writable(MakerFrameQueue* queue)
 
 void maker_frame_queue_pop_readable(MakerFrameQueue* queue)
 {
-    if (queue == NULL) {
-        MAKER_LOG_WARN("Invalid value");
-        return;
-    }
+    MAKER_ASSERT(queue);
 
     av_frame_unref(queue->items[queue->read_index].frame);
 
@@ -144,12 +141,15 @@ void maker_frame_queue_pop_readable(MakerFrameQueue* queue)
 
 MakerFrameQueueItem* maker_frame_queue_peek_last(MakerFrameQueue* queue)
 {
-    if (queue == NULL) {
-        MAKER_LOG_WARN("Invalid value");
-        return NULL;
-    }
-
+    MAKER_ASSERT(queue);
     return &queue->items[queue->read_index];
+}
+
+MakerFrameQueueItem* maker_frame_queue_peek_next(MakerFrameQueue* queue)
+{
+    MAKER_ASSERT(queue);
+    u32 index = (queue->read_index + 1) % queue->max_frame_count;
+    return &queue->items[index];
 }
 
 bool maker_frame_queue_is_full(MakerFrameQueue* queue)

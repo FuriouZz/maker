@@ -29,22 +29,21 @@ MakerStatus maker_media_init(MakerMedia* media, char* url)
 {
     MAKER_CHECK(media);
 
-    MakerStatus status;
+    MakerStatus status = MAKER_STATUS_OK;
 
-    AVFormatContext* format = maker_media_create_context(url);
-    if (format == NULL) {
+    media->format = maker_media_create_context(url);
+    if (media->format == NULL) {
         goto cleanup;
     }
 
-    status = maker_media_info_init_with_format(&media->info, format);
+    status = maker_media_info_init_with_format(&media->info, media->format);
     if (status != MAKER_STATUS_OK) {
         goto cleanup;
     }
 
-    media->format         = format;
     media->is_initialized = TRUE;
 
-    return MAKER_STATUS_OK;
+    return status;
 
 cleanup:
     maker_media_uninit(media);
@@ -52,12 +51,10 @@ cleanup:
     return MAKER_STATUS_ERROR;
 }
 
-MakerStatus maker_media_uninit(MakerMedia* media)
+void maker_media_uninit(MakerMedia* media)
 {
-    MAKER_CHECK(media);
-
+    if (media == NULL) return;
+    maker_media_info_uninit(&media->info);
     avformat_free_context(media->format);
     media->is_initialized = FALSE;
-
-    return MAKER_STATUS_OK;
 }

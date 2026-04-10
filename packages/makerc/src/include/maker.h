@@ -67,6 +67,11 @@ typedef struct {
 } MakerContext;
 
 typedef struct {
+    void*         internal_state;
+    unsigned char is_initialized; /* boolean */
+} MakerClock;
+
+typedef struct {
     unsigned int thread_count;
     void (*create_worker)(MakerStatus (*task)(void* decoder), void* decoder);
 } MakerContextDesc;
@@ -77,11 +82,17 @@ typedef struct {
 } MakerDecoder;
 
 typedef struct {
-    unsigned char     use_playback;
     char*             url;
+    MakerClock*       clock;
     MakerContext*     context;
     MakerContextDesc* context_desc;
 } MakerDecoderDesc;
+
+MAKER_PUBLIC extern MakerStatus maker_clock_init(MakerClock* clock);
+MAKER_PUBLIC extern void        maker_clock_uninit(MakerClock* clock);
+MAKER_PUBLIC extern MakerStatus maker_clock_start(MakerClock* clock);
+MAKER_PUBLIC extern MakerStatus maker_clock_pause(MakerClock* clock);
+MAKER_PUBLIC extern MakerStatus maker_clock_get_time(MakerClock* clock, unsigned int* time_ms);
 
 MAKER_PUBLIC extern MakerStatus maker_media_info_init(MakerMediaInfo* info, char* url);
 MAKER_PUBLIC extern MakerStatus maker_media_info_uninit(MakerMediaInfo* info);
@@ -92,13 +103,12 @@ MAKER_PUBLIC extern MakerStatus maker_video_frame_save_pgm(MakerVideoFrame* targ
 MAKER_PUBLIC extern MakerStatus maker_video_frame_save_ppm(MakerVideoFrame* target, char* output);
 
 MAKER_PUBLIC extern MakerStatus  maker_decoder_init(MakerDecoder* decoder, MakerDecoderDesc* desc);
-MAKER_PUBLIC extern MakerStatus  maker_decoder_uninit(MakerDecoder* decoder);
+MAKER_PUBLIC extern void         maker_decoder_uninit(MakerDecoder* decoder);
 MAKER_PUBLIC extern MakerStatus  maker_decoder_get_media_info(MakerDecoder* decoder, MakerMediaInfo* info);
 MAKER_PUBLIC extern unsigned int maker_decoder_get_video_frame(MakerDecoder* decoder, MakerVideoFrame* target);
-MAKER_PUBLIC extern MakerStatus  maker_decoder_get_playback_time(MakerDecoder* decoder, unsigned int* time_ms);
 MAKER_PUBLIC extern MakerStatus  maker_decoder_seek(MakerDecoder* decoder, unsigned long long seconds);
 
 MAKER_PUBLIC extern MakerStatus maker_context_init(MakerContext* context, MakerContextDesc* desc);
-MAKER_PUBLIC extern MakerStatus maker_context_uninit(MakerContext* context);
+MAKER_PUBLIC extern void        maker_context_uninit(MakerContext* context);
 
 #endif

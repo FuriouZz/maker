@@ -34,9 +34,9 @@ static MakerStatus maker__thread_worker(void* user_data, u32 user_index)
             break;
         }
 
-        MAKER_LOG_INFO(maker_format("waiting for job (%d)", user_index));
+        // MAKER_LOG_INFO(maker_format("waiting for job (%d)", user_index));
         if (maker__can_read_job(ctx->job_queue, &job, &ctx->lock, &ctx->new_job_signal, &ctx->is_aborted) == MAKER_STATUS_OK) {
-            MAKER_LOG_INFO(maker_format("job running (%d)", user_index));
+            // MAKER_LOG_INFO(maker_format("job running (%d)", user_index));
             if (job.callback == NULL) {
                 MAKER_LOG_WARN("Invalid worker");
             } else {
@@ -45,7 +45,7 @@ static MakerStatus maker__thread_worker(void* user_data, u32 user_index)
 
             job.callback = NULL;
             job.data     = NULL;
-            MAKER_LOG_INFO(maker_format("job running (%d)", user_index));
+            // MAKER_LOG_INFO(maker_format("job running (%d)", user_index));
         }
     }
 

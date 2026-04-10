@@ -2,7 +2,12 @@
 
 void* maker_malloc(usize size) { return malloc(size); }
 
-void maker_free(void* ptr) { free(ptr); }
+void maker_free(void* ptr)
+{
+    if (ptr != NULL) {
+        free(ptr);
+    }
+}
 
 void maker_clear(void* ptr, usize size)
 {

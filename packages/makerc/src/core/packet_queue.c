@@ -69,7 +69,7 @@ void maker_packet_queue_flush(MakerPacketQueue* queue)
 
 void maker_packet_queue_uninit(MakerPacketQueue* queue)
 {
-    MAKER_ASSERT(queue);
+    if (queue == NULL) return;
 
     maker_packet_queue_flush(queue);
     av_fifo_freep2(&queue->fifo);
