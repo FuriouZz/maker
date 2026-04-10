@@ -22,6 +22,7 @@
 typedef enum {
     MAKER_STATUS_ERROR = -1,
     MAKER_STATUS_OK,
+    MAKER_STATUS_BUSY,
 } MakerStatus;
 
 typedef enum {

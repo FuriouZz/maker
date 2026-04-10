@@ -69,7 +69,8 @@ void maker_thread_pool_dealloc(MakerThreadPool* pool)
 
 MakerStatus maker_thread_pool_init(MakerThreadPool* pool, usize thread_count)
 {
-    MAKER_CHECK(pool);
+    MAKER_ASSERT(pool);
+    MAKER_ASSERT(thread_count > 0);
 
     maker_clear(pool, sizeof(*pool));
     pool->threads = NULL;

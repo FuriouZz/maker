@@ -1,6 +1,6 @@
 #include "maker_internal.h"
 
-static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptions* options)
+static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerStartOptions* options)
 {
     MAKER_CHECK(demuxer);
 
@@ -14,7 +14,7 @@ static MakerStatus maker__demuxer_demux(MakerDemuxer* demuxer, MakerDemuxerOptio
     bool               should_wait       = TRUE;
 
     if (options != NULL) {
-        video_frame_count = options->max_video_frame_count;
+        video_frame_count = demuxer->options.max_video_frame_count;
         should_wait       = options->should_wait;
     }
 
@@ -78,7 +78,7 @@ the_end:
     return status;
 }
 
-MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerVideoDecoder* video_decoder)
+MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerVideoDecoder* video_decoder, MakerDemuxerOptions* options)
 {
     MAKER_CHECK(demuxer);
     MAKER_CHECK(media);
@@ -90,6 +90,12 @@ MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerVi
     demuxer->video      = NULL;
     demuxer->is_eof     = FALSE;
     demuxer->is_aborted = TRUE;
+
+    if (options != NULL) {
+        memcpy(&demuxer->options, options, sizeof(*options));
+    }
+
+    MAKER_ASSERT(demuxer->options.max_video_frame_count > 0);
 
     AVPacket* packet = av_packet_alloc();
     if (packet == NULL) {
@@ -138,7 +144,7 @@ void maker_demuxer_setup(MakerDemuxer* demuxer)
     }
 }
 
-MakerStatus maker_demuxer_start(MakerDemuxer* demuxer, MakerDemuxerOptions* options)
+MakerStatus maker_demuxer_start(MakerDemuxer* demuxer, MakerDemuxerStartOptions* options)
 {
     MAKER_CHECK(demuxer);
 
@@ -166,4 +172,11 @@ MakerStatus maker_demuxer_stop(MakerDemuxer* demuxer)
     maker_cond_signal(&demuxer->signal);
 
     return MAKER_STATUS_OK;
+}
+
+bool maker_demuxer_can_run(MakerDemuxer* demuxer, u32 max_count)
+{
+    MAKER_ASSERT(demuxer);
+    return MAKER_ATOMIC_LOAD(&demuxer->is_aborted)
+        && max_count == maker_packet_queue_count(&demuxer->video->packet_queue);
 }

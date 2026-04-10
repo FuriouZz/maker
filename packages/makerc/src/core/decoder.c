@@ -7,35 +7,46 @@ inline MakerDecoderInternal* maker__decoder_internal(MakerDecoder* user_decoder)
 
 MakerStatus maker_decoder_demux(void* data)
 {
-    MakerDecoder*         user_decoder = (MakerDecoder*)data;
+    MakerJobData*         worker       = (MakerJobData*)data;
+    MakerDecoder*         user_decoder = (MakerDecoder*)worker->data;
     MakerDecoderInternal* decoder      = maker__decoder_internal(user_decoder);
 
-    MAKER_LOG_INFO("demux start");
-    MakerStatus status = maker_demuxer_start(
-        &decoder->demuxer,
-        &(MakerDemuxerOptions) {
-            .max_video_frame_count = 16,
-            .should_wait           = FALSE,
-        }
-    );
-    MAKER_LOG_INFO("demux stopped");
+    MakerStatus status = MAKER_STATUS_OK;
+    if (MAKER_ATOMIC_LOAD(&worker->status) == MAKER_WORKER_STATUS_PENDING) {
+        MAKER_ATOMIC_STORE(&worker->status, MAKER_WORKER_STATUS_BUSY);
+        MAKER_LOG_INFO("demux start");
+        status = maker_demuxer_start(
+            &decoder->demuxer,
+            &(MakerDemuxerStartOptions) {
+                .should_wait = FALSE,
+            }
+        );
+        MAKER_ATOMIC_STORE(&worker->status, MAKER_WORKER_STATUS_IDLE);
+        MAKER_LOG_INFO("demux stopped");
+    }
 
     return status;
 }
 
 MakerStatus maker_decoder_decode_video(void* data)
 {
-    MakerDecoder*         user_decoder = (MakerDecoder*)data;
+    MakerJobData*         worker       = (MakerJobData*)data;
+    MakerDecoder*         user_decoder = (MakerDecoder*)worker->data;
     MakerDecoderInternal* decoder      = maker__decoder_internal(user_decoder);
 
-    MAKER_LOG_INFO("decode_video start");
-    MakerStatus status = maker_video_decoder_start(
-        &decoder->video,
-        &(MakerVideoDecoderOptions) {
-            .should_wait = FALSE,
-        }
-    );
-    MAKER_LOG_INFO("decode_video stopped");
+    MakerStatus status = MAKER_STATUS_OK;
+    if (MAKER_ATOMIC_LOAD(&worker->status) == MAKER_WORKER_STATUS_PENDING) {
+        MAKER_ATOMIC_STORE(&worker->status, MAKER_WORKER_STATUS_BUSY);
+        MAKER_LOG_INFO("decode_video start");
+        status = maker_video_decoder_start(
+            &decoder->video,
+            &(MakerVideoDecoderOptions) {
+                .should_wait = FALSE,
+            }
+        );
+        MAKER_ATOMIC_STORE(&worker->status, MAKER_WORKER_STATUS_IDLE);
+        MAKER_LOG_INFO("decode_video stopped");
+    }
 
     return status;
 }
@@ -118,9 +129,20 @@ MakerStatus maker_decoder_init(MakerDecoder* user_decoder, MakerDecoderDesc* des
         }
     }
 
-    if (maker_demuxer_init(&decoder->demuxer, &decoder->media, &decoder->video) != MAKER_STATUS_OK) {
+    if (maker_demuxer_init(
+            &decoder->demuxer,
+            &decoder->media,
+            &decoder->video,
+            &(MakerDemuxerOptions) {
+                .max_video_frame_count = 16,
+            }
+        )
+        != MAKER_STATUS_OK) {
         goto cleanup_video_decoder;
     }
+
+    decoder->demux_worker.data         = user_decoder;
+    decoder->video_decoder_worker.data = user_decoder;
 
     user_decoder->internal_state = decoder;
     user_decoder->is_initialized = TRUE;
@@ -295,30 +317,45 @@ static MakerStatus maker_decoder_queue(MakerDecoder* user_decoder)
     MakerDecoderInternal* decoder = maker__decoder_internal(user_decoder);
     MakerContextInternal* context = maker__context_internal(decoder->desc.context);
 
+    MakerStatus status = MAKER_STATUS_OK;
+
     if (context->desc.create_worker) {
         context->desc.create_worker(maker_decoder_demux, user_decoder);
         context->desc.create_worker(maker_decoder_decode_video, user_decoder);
     } else {
-        if (maker_thread_pool_queue_job(
+        MakerWorkerStatus expected = MAKER_WORKER_STATUS_IDLE;
+
+        if (MAKER_ATOMIC_COMPARE_EXCHANGE(
+                &decoder->demux_worker.status,
+                &expected, MAKER_WORKER_STATUS_PENDING
+            )) {
+            status = maker_thread_pool_queue_job(
                 &context->thread_pool,
                 maker_decoder_demux,
-                user_decoder
-            )
-            != MAKER_STATUS_OK) {
-            return MAKER_STATUS_ERROR;
+                &decoder->demux_worker
+            );
+            if (status != MAKER_STATUS_OK) {
+                goto the_end;
+            }
         }
 
-        if (maker_thread_pool_queue_job(
+        if (MAKER_ATOMIC_COMPARE_EXCHANGE(
+                &decoder->video_decoder_worker.status,
+                &expected, MAKER_WORKER_STATUS_PENDING
+            )) {
+            status = maker_thread_pool_queue_job(
                 &context->thread_pool,
                 maker_decoder_decode_video,
-                user_decoder
-            )
-            != MAKER_STATUS_OK) {
-            return MAKER_STATUS_ERROR;
+                &decoder->video_decoder_worker
+            );
+            if (status != MAKER_STATUS_OK) {
+                goto the_end;
+            }
         }
     }
 
-    return MAKER_STATUS_OK;
+the_end:
+    return status;
 }
 
 u32 maker_decoder_get_video_frame(MakerDecoder* user_decoder, MakerVideoFrame* target)

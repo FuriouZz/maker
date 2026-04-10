@@ -157,8 +157,8 @@ typedef struct {
 } MakerThreadPoolJob;
 
 typedef struct {
-    MakerCond  new_job_signal;
     MakerMutex lock;
+    MakerCond  new_job_signal;
     AVFifo*    job_queue;
     bool       is_aborted;
 } MakerThreadPoolContext;
@@ -169,12 +169,10 @@ typedef struct {
     u32                    count;
 } MakerThreadPool;
 
-extern MakerThreadPool* maker_thread_pool_alloc(void);
-extern void             maker_thread_pool_dealloc(MakerThreadPool* pool);
-extern MakerStatus      maker_thread_pool_init(MakerThreadPool* pool, usize thread_count);
-extern void             maker_thread_pool_uninit(MakerThreadPool* pool);
-extern MakerStatus      maker_thread_pool_queue_job(MakerThreadPool* pool, MakerStatus (*user_job)(void* user_data), void* user_data);
-extern i32              maker_thread_pool_job_count(MakerThreadPool* pool);
+extern MakerStatus maker_thread_pool_init(MakerThreadPool* pool, usize thread_count);
+extern void        maker_thread_pool_uninit(MakerThreadPool* pool);
+extern MakerStatus maker_thread_pool_queue_job(MakerThreadPool* pool, MakerStatus (*user_job)(void* user_data), void* user_data);
+extern i32         maker_thread_pool_job_count(MakerThreadPool* pool);
 
 /* ---- packet_queue.c ----
  */
@@ -286,27 +284,32 @@ extern MakerStatus maker_video_decoder_yuv2rgb(MakerVideoDecoder* decoder, Maker
 
 /* ---- demuxer.c ----
  */
-typedef struct {
-    MakerCond          signal;
-    AVPacket*          packet;
-    MakerVideoDecoder* video;
-    AVFormatContext*   format;
-    u32                seek_timestamp;
-    u32                seek_flags;
-    bool               needs_seek;
-    bool               is_aborted;
-    bool               is_eof;
-} MakerDemuxer;
 
 typedef struct {
-    u32  max_video_frame_count;
-    bool should_wait;
+    u32 max_video_frame_count;
 } MakerDemuxerOptions;
 
-extern MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerVideoDecoder* video_decoder);
+typedef struct {
+    bool should_wait;
+} MakerDemuxerStartOptions;
+
+typedef struct {
+    MakerCond           signal;
+    AVPacket*           packet;
+    MakerVideoDecoder*  video;
+    AVFormatContext*    format;
+    MakerDemuxerOptions options;
+    u32                 seek_timestamp;
+    u32                 seek_flags;
+    bool                needs_seek;
+    bool                is_aborted;
+    bool                is_eof;
+} MakerDemuxer;
+
+extern MakerStatus maker_demuxer_init(MakerDemuxer* demuxer, MakerMedia* media, MakerVideoDecoder* video_decoder, MakerDemuxerOptions* options);
 extern void        maker_demuxer_uninit(MakerDemuxer* demuxer);
 extern void        maker_demuxer_setup(MakerDemuxer* demuxer);
-extern MakerStatus maker_demuxer_start(MakerDemuxer* demuxer, MakerDemuxerOptions* options);
+extern MakerStatus maker_demuxer_start(MakerDemuxer* demuxer, MakerDemuxerStartOptions* options);
 extern MakerStatus maker_demuxer_stop(MakerDemuxer* demuxer);
 
 /* ---- wait_group.c ----
@@ -326,14 +329,29 @@ extern void        maker_wait_group_done(MakerWaitGroup* group);
 /* ---- decoder.c ----
  */
 
+typedef enum {
+    MAKER_WORKER_STATUS_IDLE,
+    MAKER_WORKER_STATUS_PENDING,
+    MAKER_WORKER_STATUS_BUSY,
+} MakerWorkerStatus;
+
+typedef struct {
+    void*             data;
+    MakerWorkerStatus status;
+} MakerJobData;
+
 typedef struct {
     MakerVideoDecoder video;
     MakerDemuxer      demuxer;
     MakerMedia        media;
     MakerClock        clock;
     MakerDecoderDesc  desc;
-    bool              use_local_context;
-    bool              aborted;
+
+    MakerJobData demux_worker;
+    MakerJobData video_decoder_worker;
+
+    bool use_local_context;
+    bool aborted;
 } MakerDecoderInternal;
 
 extern MakerDecoderInternal* maker__decoder_internal(MakerDecoder* user_decoder);
